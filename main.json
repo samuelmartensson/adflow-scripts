@@ -1,0 +1,29 @@
+{
+  "template": {
+    "src": "",
+    "composition": "Adflow_Test_1-1_1080x1080px"
+  },
+  "assets": [],
+  "actions": {
+    "prerender": [
+      {
+        "module": "C:/Users/Samuel/Desktop/nexrender_cli/update.js"
+      }
+    ],
+    "postrender": [
+      {
+        "module": "@nexrender/action-encode",
+        "output": "temp.mp4",
+        "preset": "mp4"
+      },
+      {
+        "module": "@nexrender/action-copy",
+        "input": "temp.mp4",
+        "output": "C:/Users/Samuel/Desktop/nexrender_cli/renders/my_render.mp4"
+      },
+      {
+        "module": "C:/Users/Samuel/Desktop/nexrender_cli/upload.js"
+      }
+    ]
+  }
+}
