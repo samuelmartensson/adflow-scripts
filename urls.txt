@@ -1,0 +1,2 @@
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/upload.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/update.js
