@@ -1,2 +1,7 @@
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/package.json
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/package-lock.json
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/upload.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/update.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/proxy.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/datasource-listener.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/configMiddleware.js
