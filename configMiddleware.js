@@ -1,4 +1,5 @@
 const desktopPath = `${process.env.USERPROFILE}\\Desktop\\nexrender_cli`;
+const scriptPath = `${process.env.USERPROFILE}\\Desktop\\scripts`;
 
 exports.default = function () {
   return {
@@ -10,7 +11,7 @@ exports.default = function () {
     actions: {
       prerender: [
         {
-          module: `${desktopPath}/update.js`,
+          module: `${scriptPath}\\update.js`,
         },
       ],
       postrender: [
@@ -25,7 +26,7 @@ exports.default = function () {
           output: `${desktopPath}\\renders\\my_render.mp4`,
         },
         {
-          module: `${desktopPath}\\upload.js`,
+          module: `${scriptPath}\\upload.js`,
         },
       ],
     },
