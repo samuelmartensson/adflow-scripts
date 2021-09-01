@@ -21,7 +21,7 @@ const s3 = new AWS.S3({
 });
 
 const generateAepFileName = (name, id) =>
-  `${name.replaceAll(' ', '_')}_${id}.aep`;
+  `${name.replace(/ /g, '_')}_${id}.aep`;
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
 
@@ -36,14 +36,13 @@ function launchRenderInstance(data, instanceId) {
 
   const item = data[0];
 
-  console.log(item);
-  return s3
-    .getSignedUrlPromise('getObject', {
+  return new Promise((resolve) => {
+    s3.getSignedUrlPromise('getObject', {
       Bucket: 'adflow-templates',
       Key: generateAepFileName(item.templateName, item.id),
       Expires: 60 * 5,
-    })
-    .then((url) => {
+    }).then((url) => {
+      console.log(url);
       const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
 
       json.assets = item.fields;
@@ -52,7 +51,7 @@ function launchRenderInstance(data, instanceId) {
 
       // Config composition, pre- and postrender data
       json.template = {
-        src: url,
+        src: decodeURIComponent(url),
         composition: item.target,
       };
       json.actions.prerender[0].data = { ...item, instanceId };
@@ -60,11 +59,14 @@ function launchRenderInstance(data, instanceId) {
       json.actions.postrender[2].data = { ...item, instanceId };
       json.actions.postrender[2].filePath = outputFile;
 
-      return render(json, {
+      render(json, {
         addLicense: true,
         workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
-      });
+      })
+        .then(() => resolve())
+        .catch((err) => console.log(err));
     });
+  });
 }
 
 meta.request('/latest/meta-data/instance-id', function (err, instanceId) {

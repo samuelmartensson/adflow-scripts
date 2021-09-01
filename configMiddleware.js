@@ -1,4 +1,4 @@
-const desktopPath = `${process.env.USERPROFILE}/Desktop/nexrender_cli`;
+const desktopPath = `${process.env.USERPROFILE}\\Desktop\\nexrender_cli`;
 
 exports.default = function () {
   return {
@@ -22,10 +22,10 @@ exports.default = function () {
         {
           module: '@nexrender/action-copy',
           input: 'temp.mp4',
-          output: `${desktopPath}/renders/my_render.mp4`,
+          output: `${desktopPath}\\renders\\my_render.mp4`,
         },
         {
-          module: `${desktopPath}/upload.js`,
+          module: `${desktopPath}\\upload.js`,
         },
       ],
     },
