@@ -6,12 +6,22 @@ const AWS = require('aws-sdk');
 const json = require('./configMiddleware').default();
 
 const meta = new AWS.MetadataService();
-var ec2 = new AWS.EC2({
+const ec2 = new AWS.EC2({
   apiVersion: '2016-11-15',
   region: 'eu-north-1',
   accessKeyId: process.env.AWS_ID,
   secretAccessKey: process.env.AWS_SECRET,
 });
+
+const s3 = new AWS.S3({
+  signatureVersion: 'v4',
+  region: 'eu-north-1',
+  accessKeyId: process.env.AWS_ID,
+  secretAccessKey: process.env.AWS_SECRET,
+});
+
+const generateAepFileName = (name, id) =>
+  `${name.replaceAll(' ', '_')}_${id}.aep`;
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
 
@@ -25,26 +35,35 @@ function launchRenderInstance(data, instanceId) {
   console.log('DATA FOUND --- STARTING RENDER');
 
   const item = data[0];
-  const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
 
-  json.assets = item.fields;
+  return s3
+    .getSignedUrlPromise('getObject', {
+      Bucket: 'adflow-templates',
+      Key: generateAepFileName(item.meta.templateName, currentTemplate.id),
+      Expires: 60 * 5,
+    })
+    .then((url) => {
+      const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
 
-  if (item.static) json.assets.push(...item.static);
+      json.assets = item.fields;
 
-  // Config composition, pre- and postrender data
-  json.template = {
-    src: item.templateSrc,
-    composition: item.target,
-  };
-  json.actions.prerender[0].data = { ...item, instanceId };
-  json.actions.postrender[1].output = outputFile;
-  json.actions.postrender[2].data = { ...item, instanceId };
-  json.actions.postrender[2].filePath = outputFile;
+      if (item.static) json.assets.push(...item.static);
 
-  return render(json, {
-    addLicense: true,
-    workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
-  });
+      // Config composition, pre- and postrender data
+      json.template = {
+        src: url,
+        composition: item.target,
+      };
+      json.actions.prerender[0].data = { ...item, instanceId };
+      json.actions.postrender[1].output = outputFile;
+      json.actions.postrender[2].data = { ...item, instanceId };
+      json.actions.postrender[2].filePath = outputFile;
+
+      return render(json, {
+        addLicense: true,
+        workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
+      });
+    });
 }
 
 meta.request('/latest/meta-data/instance-id', function (err, instanceId) {
