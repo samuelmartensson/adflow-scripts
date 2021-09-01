@@ -25,7 +25,7 @@ exports.default = function () {
           output: `${desktopPath}/renders/my_render.mp4`,
         },
         {
-          module: `${desktopPath}/nexrender_cli/upload.js`,
+          module: `${desktopPath}/upload.js`,
         },
       ],
     },
