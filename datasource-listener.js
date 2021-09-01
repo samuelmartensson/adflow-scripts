@@ -36,10 +36,11 @@ function launchRenderInstance(data, instanceId) {
 
   const item = data[0];
 
+  console.log(item);
   return s3
     .getSignedUrlPromise('getObject', {
       Bucket: 'adflow-templates',
-      Key: generateAepFileName(item.meta.templateName, currentTemplate.id),
+      Key: generateAepFileName(item.templateName, item.id),
       Expires: 60 * 5,
     })
     .then((url) => {
