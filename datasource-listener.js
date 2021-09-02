@@ -20,8 +20,11 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
-const generateAepFileName = (name, id) =>
-  `${name.replace(/ /g, '_')}_${id}.aep`;
+const generateAepFilePath = (name, id) => {
+  const path = `${name.replaceAll(' ', '_')}_${id}`;
+
+  return `${path}/project.aep`;
+};
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
 
@@ -39,10 +42,9 @@ function launchRenderInstance(data, instanceId) {
   return new Promise((resolve) => {
     s3.getSignedUrlPromise('getObject', {
       Bucket: 'adflow-templates',
-      Key: generateAepFileName(item.templateName, item.id),
+      Key: generateAepFilePath(item.templateName, item.templateId),
       Expires: 60 * 5,
     }).then((url) => {
-      console.log(url);
       const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
 
       json.assets = item.fields;
