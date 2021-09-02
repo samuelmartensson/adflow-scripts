@@ -21,7 +21,7 @@ const s3 = new AWS.S3({
 });
 
 const generateAepFilePath = (name, id) => {
-  const path = `${name.replaceAll(' ', '_')}_${id}`;
+  const path = `${name.replace(/' '/g, '_')}_${id}`;
 
   return `${path}/project.aep`;
 };
