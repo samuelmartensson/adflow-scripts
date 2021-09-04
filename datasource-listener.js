@@ -1,9 +1,11 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const { render } = require('@nexrender/core');
+const spawn = require('child_process').spawn;
 const fetch = require('node-fetch');
 const async = require('async');
 const AWS = require('aws-sdk');
 const json = require('./configMiddleware').default();
+const downloadFonts = require('./font-downloader').default;
 
 const meta = new AWS.MetadataService();
 const ec2 = new AWS.EC2({
@@ -26,9 +28,16 @@ const generateAepFilePath = (name, id) => {
   return `${path}/project.aep`;
 };
 
+const generateFontPath = (name, id) => {
+  const path = `${name.replace(/ /g, '_')}_${id}`;
+
+  return `${path}/fonts`;
+};
+
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
 
 let global_retries = 0;
+let fontInstallComplete = false;
 // 30 seconds
 const DATA_SOURCE_POLLING_INTERVAL = 1000 * 30;
 // Multiply by polling interval to get time
@@ -71,7 +80,24 @@ function launchRenderInstance(data, instanceId) {
   });
 }
 
-meta.request('/latest/meta-data/instance-id', function (err, instanceId) {
+function installFonts(data) {
+  return new Promise((resolve, reject) => {
+    const { templateName, templateId } = data[0];
+
+    downloadFonts(`${generateFontPath(templateName, templateId)}`).then(() => {
+      const child = spawn('powershell.exe', [
+        `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
+      ]);
+      child.on('exit', () => {
+        console.log('exited');
+        fontInstallComplete = true;
+        resolve();
+      });
+    });
+  });
+}
+
+meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
   console.log('Recieved instanceId: ' + instanceId);
   const dataSource = `http://localhost:3001/?orgId=${instanceId}`;
 
@@ -90,10 +116,16 @@ meta.request('/latest/meta-data/instance-id', function (err, instanceId) {
           .then((res) => res.json())
           .then((data) => {
             if (data.length > 0) {
-              launchRenderInstance(data, instanceId).then(() => {
-                global_retries = 0;
-                next();
-              });
+              if (fontInstallComplete) {
+                launchRenderInstance(data, instanceId).then(() => {
+                  global_retries = 0;
+                  next();
+                });
+              } else {
+                installFonts(data).then(() => {
+                  next();
+                });
+              }
             } else {
               setTimeout(() => {
                 console.log('Retrying...');

@@ -16,7 +16,7 @@ module.exports = (job, settings, action, type) => {
       firebase
         .database()
         .ref(`${data.instanceId}/${data.referenceKey}`)
-        .set({ ...data, 'render-status': 'queued' })
+        .update({ 'render-status': 'queued' })
         .then(() => {
           resolve(job);
         });
