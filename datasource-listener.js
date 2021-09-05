@@ -89,7 +89,7 @@ function installFonts(data) {
         `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
       ]);
       child.on('exit', () => {
-        console.log('exited');
+        console.log('--- Font install complete ---');
         fontInstallComplete = true;
         resolve();
       });

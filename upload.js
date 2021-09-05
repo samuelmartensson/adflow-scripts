@@ -41,8 +41,8 @@ module.exports = (job, settings, action, type) => {
 
           firebase
             .database()
-            .ref(`${data.instanceId}/${data.referenceKey}`)
-            .set({ ...data, 'render-status': 'done' });
+            .ref(`${data.orgId}/${data.instanceId}/${data.referenceKey}`)
+            .update({ 'render-status': 'done' });
 
           const objectToSet = {
             created_date: new Date().toISOString(),
