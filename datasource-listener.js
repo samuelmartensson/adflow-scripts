@@ -99,7 +99,7 @@ function installFonts(data) {
 
 meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
   console.log('Recieved instanceId: ' + instanceId);
-  const dataSource = `http://localhost:3001/?orgId=${instanceId}`;
+  const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
 
   async.forever(
     (next) => {
