@@ -30,6 +30,10 @@ const main = (Prefix) => {
             Expires: 60 * 5,
           });
         });
+
+        if (contents.length === 0)
+          resolve('No fonts to download --- Continuing');
+
         Promise.all(urls).then((downloadUrls) => {
           downloadUrls.forEach((url, index) => {
             const destination = `${process.env.USERPROFILE}/Desktop/nexrender_cli/fonts/${fileNames[index]}`;
