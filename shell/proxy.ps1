@@ -1,0 +1,1 @@
+node C:\Users\Administrator\Desktop\scripts\proxy.js
