@@ -22,16 +22,12 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
-const generateAepFilePath = (name, id) => {
-  const path = `${name.replace(/ /g, '_')}_${id}`;
-
-  return `${path}/project.aep`;
+const generateAepFilePath = (id) => {
+  return `${id}/project.aep`;
 };
 
-const generateFontPath = (name, id) => {
-  const path = `${name.replace(/ /g, '_')}_${id}`;
-
-  return `${path}/fonts`;
+const generateFontPath = (id) => {
+  return `${id}/fonts`;
 };
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
@@ -51,7 +47,7 @@ function launchRenderInstance(data, instanceId) {
   return new Promise((resolve) => {
     s3.getSignedUrlPromise('getObject', {
       Bucket: 'adflow-templates',
-      Key: generateAepFilePath(item.templateName, item.templateId),
+      Key: generateAepFilePath(item.templateId),
       Expires: 60 * 5,
     }).then((url) => {
       const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
@@ -82,9 +78,9 @@ function launchRenderInstance(data, instanceId) {
 
 function installFonts(data) {
   return new Promise((resolve, reject) => {
-    const { templateName, templateId } = data[0];
+    const { templateId } = data[0];
 
-    downloadFonts(`${generateFontPath(templateName, templateId)}`).then(() => {
+    downloadFonts(`${generateFontPath(templateId)}`).then(() => {
       const child = spawn('powershell.exe', [
         `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
       ]);
