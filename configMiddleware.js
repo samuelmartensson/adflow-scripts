@@ -13,6 +13,10 @@ exports.default = function () {
         {
           module: `${scriptPath}\\update.js`,
         },
+        {
+          module: '@nexrender/action-cache',
+          cacheDirectory: '~/cache',
+        },
       ],
       postrender: [
         {
@@ -27,6 +31,10 @@ exports.default = function () {
         },
         {
           module: `${scriptPath}\\upload.js`,
+        },
+        {
+          module: '@nexrender/action-cache',
+          cacheDirectory: '~/cache',
         },
       ],
     },
