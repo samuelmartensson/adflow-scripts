@@ -70,6 +70,8 @@ function renderVideo(item, instanceId) {
       render(json, {
         addLicense: true,
         workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
+        reuse: true,
+        debug: true,
       })
         .then(() => resolve())
         .catch((err) => console.log(err));
