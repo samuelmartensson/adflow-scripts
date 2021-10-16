@@ -1,6 +1,7 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const firebase = require('firebase-admin');
 const serviceAccount = require('./serviceaccountcred');
+const logger = require('./logger').default;
 
 module.exports = (job, settings, action, type) => {
   const { data } = action;
