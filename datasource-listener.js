@@ -39,6 +39,10 @@ const generateFontPath = (id) => {
   return `${id}/fonts`;
 };
 
+function terminateCurrentInstance(id) {
+  ec2.terminateInstances({ InstanceIds: [id] }, (err, data) => {});
+}
+
 function renderVideo(item, instanceId) {
   console.log('DATA FOUND --- STARTING RENDER');
 
@@ -74,7 +78,18 @@ function renderVideo(item, instanceId) {
         debug: true,
       })
         .then(() => resolve())
-        .catch((err) => console.log(err));
+        .catch((err) => {
+          logger.error(
+            {
+              processName: 'Nexrender Error',
+              error: JSON.stringify(err),
+              userId: item.userId,
+            },
+            () => {
+              terminateCurrentInstance(instanceId);
+            }
+          );
+        });
     });
   });
 }
@@ -92,10 +107,6 @@ function installFonts(templateId) {
       });
     });
   });
-}
-
-function terminateCurrentInstance(id) {
-  ec2.terminateInstances({ InstanceIds: [id] }, (err, data) => {});
 }
 
 async function fetchDatasource(url) {
