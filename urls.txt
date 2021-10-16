@@ -6,3 +6,4 @@ https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/proxy.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/datasource-listener.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/configMiddleware.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/font-downloader.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/logger.js
