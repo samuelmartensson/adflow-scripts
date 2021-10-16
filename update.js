@@ -21,20 +21,16 @@ module.exports = (job, settings, action, type) => {
           resolve(job);
         });
     } catch (err) {
-      const objectToSet = {
-        batch_process: 'update',
-        message: String(err),
-        timestamp: new Date(),
-      };
-      firebase
-        .firestore()
-        .collection(`users/${data.userId}/errors`)
-        .doc()
-        .set(objectToSet)
-        .then(() => {
+      logger.error(
+        {
+          processName: 'update',
+          error: JSON.stringify(err),
+          userId: data.userId,
+        },
+        () => {
           resolve(job);
-        });
+        }
+      );
     }
   });
 };
-// Signed by sam ;)

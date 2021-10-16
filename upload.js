@@ -44,7 +44,7 @@ module.exports = (job, settings, action, type) => {
             .ref(`${data.orgId}/${data.instanceId}/${data.referenceKey}`)
             .update({ 'render-status': 'done' });
 
-          const objectToSet = {
+          const media = {
             created_date: new Date().toISOString(),
             viewed: false,
             name: data.displayName,
@@ -59,21 +59,21 @@ module.exports = (job, settings, action, type) => {
 
           db.collection(`users/${data.userId}/videos`)
             .doc()
-            .set(objectToSet)
+            .set(media)
             .then(() => resolve(job));
         });
       };
 
       uploadFile(filePath);
     } catch (err) {
-      db.collection(`users/${data.userId}/errors`)
-        .doc()
-        .set({
-          batch_process: 'upload',
-          message: String(err),
-          timestamp: new Date(),
-        })
-        .then(() => resolve(job));
+      logger.error(
+        {
+          processName: 'upload',
+          error: JSON.stringify(err),
+          userId: data.userId,
+        },
+        () => resolve(job)
+      );
     }
   });
 };
