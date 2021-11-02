@@ -1,4 +1,13 @@
+require('dotenv').config({ path: __dirname + '/.env' });
 const firebase = require('firebase-admin');
+const serviceAccount = require('./serviceaccountcred');
+
+if (firebase.apps.length === 0) {
+  firebase.initializeApp({
+    credential: firebase.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DB_URL,
+  });
+}
 
 const error = ({ processName, error, userId }, callback) => {
   const objectToSet = {
@@ -6,6 +15,7 @@ const error = ({ processName, error, userId }, callback) => {
     error: JSON.stringify(error),
     timestamp: new Date(),
   };
+
   firebase
     .firestore()
     .collection(`users/${userId}/errors`)
