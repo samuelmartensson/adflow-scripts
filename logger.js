@@ -14,11 +14,12 @@ const error = ({ processName, error, userId }, callback) => {
     batch_process: processName,
     error: JSON.stringify(error),
     timestamp: new Date(),
+    userId,
   };
 
   firebase
     .firestore()
-    .collection(`users/${userId}/errors`)
+    .collection(`errors`)
     .doc()
     .set(objectToSet)
     .then(() => {
