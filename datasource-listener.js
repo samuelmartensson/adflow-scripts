@@ -1,32 +1,31 @@
-require('dotenv').config({ path: __dirname + '/.env' });
-const { render } = require('@nexrender/core');
-const spawn = require('child_process').spawn;
-const fetch = require('node-fetch');
-const async = require('async');
-const AWS = require('aws-sdk');
-const json = require('./configMiddleware').default();
-const downloadFonts = require('./font-downloader').default;
-const logger = require('./logger').default;
+require("dotenv").config({ path: __dirname + "/.env" });
+const { render } = require("@nexrender/core");
+const spawn = require("child_process").spawn;
+const fetch = require("node-fetch");
+const async = require("async");
+const AWS = require("aws-sdk");
+const getConfig = require("./configMiddleware").default;
+const downloadFonts = require("./font-downloader").default;
+const logger = require("./logger").default;
 
-const rootUserPath = process.env.USERPROFILE.replace(/\\/g, '/');
+const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
 let global_retries = 0;
 let fontInstallComplete = false;
-// 30 seconds
+
 const DATA_SOURCE_POLLING_INTERVAL = 1000 * 30;
-// Multiply by polling interval to get time
 const SHUTDOWN_LIMIT = 3;
 
 const meta = new AWS.MetadataService();
 const ec2 = new AWS.EC2({
-  apiVersion: '2016-11-15',
-  region: 'eu-north-1',
+  apiVersion: "2016-11-15",
+  region: "eu-north-1",
   accessKeyId: process.env.AWS_ID,
   secretAccessKey: process.env.AWS_SECRET,
 });
 const s3 = new AWS.S3({
-  signatureVersion: 'v4',
-  region: 'eu-north-1',
+  signatureVersion: "v4",
+  region: "eu-north-1",
   accessKeyId: process.env.AWS_ID,
   secretAccessKey: process.env.AWS_SECRET,
 });
@@ -44,16 +43,18 @@ function terminateCurrentInstance(id) {
 }
 
 function renderVideo(item, instanceId) {
-  console.log('DATA FOUND --- STARTING RENDER');
+  console.log("DATA FOUND --- STARTING RENDER");
 
   return new Promise((resolve) => {
-    s3.getSignedUrlPromise('getObject', {
-      Bucket: 'adflow-templates',
+    s3.getSignedUrlPromise("getObject", {
+      Bucket: "adflow-templates",
       Key: generateAepFilePath(item.templateId),
       Expires: 60 * 5,
     }).then((url) => {
-      const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${item.id}.mp4`;
-
+      const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
+        item.id
+      }.${item.isImage ? ".jpg" : ".mp4"}`;
+      const json = getConfig(item.isImage ? "image" : "video");
       json.assets = item.fields;
 
       if (item.static) json.assets.push(...item.static);
@@ -81,7 +82,7 @@ function renderVideo(item, instanceId) {
         .catch((err) => {
           logger.error(
             {
-              processName: 'Nexrender Error',
+              processName: "Nexrender Error",
               error: JSON.stringify(err),
               userId: item.userId,
             },
@@ -97,11 +98,11 @@ function renderVideo(item, instanceId) {
 function installFonts(templateId) {
   return new Promise((resolve, reject) => {
     downloadFonts(`${generateFontPath(templateId)}`).then(() => {
-      const child = spawn('powershell.exe', [
+      const child = spawn("powershell.exe", [
         `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
       ]);
-      child.on('exit', () => {
-        console.log('--- Font install complete ---');
+      child.on("exit", () => {
+        console.log("--- Font install complete ---");
         fontInstallComplete = true;
         resolve();
       });
@@ -113,14 +114,14 @@ async function fetchDatasource(url) {
   return fetch(url).then((res) => res.json());
 }
 
-meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
-  console.log('Recieved instanceId: ' + instanceId);
+meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
+  console.log("Recieved instanceId: " + instanceId);
   const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
 
   if (err) {
     fetchDatasource(dataSource).then((data) => {
       logger.error({
-        processName: 'Get current instance error',
+        processName: "Get current instance error",
         error: JSON.stringify(err),
         userId: data[0].userId,
       });
@@ -133,7 +134,7 @@ meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
       if (global_retries >= SHUTDOWN_LIMIT) {
         terminateCurrentInstance(instanceId);
       } else {
-        console.log('Checking data source for new data...');
+        console.log("Checking data source for new data...");
 
         fetchDatasource(dataSource).then((data) => {
           const item = data[0];
@@ -151,7 +152,7 @@ meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
             }
           } else {
             setTimeout(() => {
-              console.log('Retrying...');
+              console.log("Retrying...");
               global_retries += 1;
               next();
             }, DATA_SOURCE_POLLING_INTERVAL);
@@ -163,7 +164,7 @@ meta.request('/latest/meta-data/instance-id', (err, instanceId) => {
       fetchDatasource(dataSource).then((data) => {
         if (data[0]?.userId) {
           logger.error({
-            processName: 'Rendering Error',
+            processName: "Rendering Error",
             error: JSON.stringify(err),
             userId: data[0].userId,
           });

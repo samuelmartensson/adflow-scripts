@@ -1,8 +1,8 @@
-require('dotenv').config({ path: __dirname + '/.env' });
-const firebase = require('firebase-admin');
-const fs = require('fs');
-const AWS = require('aws-sdk');
-const logger = require('./logger').default;
+require("dotenv").config({ path: __dirname + "/.env" });
+const firebase = require("firebase-admin");
+const fs = require("fs");
+const AWS = require("aws-sdk");
+const logger = require("./logger").default;
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ID,
@@ -16,15 +16,15 @@ module.exports = (job, settings, action, type) => {
   return new Promise((resolve, reject) => {
     try {
       const uploadFile = (fileName) => {
-        const isImageSequence = fileName.split('.')[1].includes('jpg');
+        const isImageSequence = fileName.split(".")[1].includes("jpg");
         const fileContent = fs.readFileSync(
           isImageSequence ? `${fileName}00000` : fileName
         );
         const params = {
           Bucket: process.env.CLIENT_BUCKET,
-          Key: `images/${fileName.split('/').pop()}`,
+          Key: `images/${fileName.split("/").pop()}`,
           Body: fileContent,
-          ContentType: isImageSequence ? 'image/jpeg' : 'video/mp4',
+          ContentType: isImageSequence ? "image/jpeg" : "video/mp4",
         };
 
         s3.upload(params, (err, awsData) => {
@@ -32,7 +32,7 @@ module.exports = (job, settings, action, type) => {
             db.collection(`users/${data.userId}/errors`)
               .doc()
               .set({
-                batch_process: 'AWS upload',
+                batch_process: "AWS upload",
                 message: String(err),
                 timestamp: new Date(),
               });
@@ -44,7 +44,7 @@ module.exports = (job, settings, action, type) => {
           firebase
             .database()
             .ref(`${data.orgId}/${data.instanceId}/${data.referenceKey}`)
-            .update({ 'render-status': 'done' });
+            .update({ "render-status": "done" });
 
           const media = {
             created_date: new Date().toISOString(),
@@ -57,6 +57,7 @@ module.exports = (job, settings, action, type) => {
             id: data.id,
             batchName: data.batchName || null,
             isImage: isImageSequence,
+            fbAdsManagerFields: data.fbAdsManagerFields || null,
           };
 
           db.collection(`users/${data.userId}/videos`)
@@ -70,7 +71,7 @@ module.exports = (job, settings, action, type) => {
     } catch (err) {
       logger.error(
         {
-          processName: 'upload',
+          processName: "upload",
           error: JSON.stringify(err),
           userId: data.userId,
         },

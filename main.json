@@ -1,28 +1,28 @@
 {
   "template": {
-    "src": "",
-    "composition": "Adflow_Test_1-1_1080x1080px"
+    "src": "file:///C:/Users/samue/Desktop/project.aep",
+    "composition": "Adflow_Test_4-5_1080x1350px",
+    "outputExt": "jpg"
   },
-  "assets": [],
+  "assets": [
+    {
+      "type": "data",
+      "value": "Test 1337",
+      "layerName": "text1",
+      "property": "Source Text"
+    },
+    {
+      "type": "image",
+      "src": "https://static01.nyt.com/images/2021/09/14/science/07CAT-STRIPES/07CAT-STRIPES-mediumSquareAt3X-v2.jpg",
+      "layerName": "bild01"
+    }
+  ],
   "actions": {
-    "prerender": [
-      {
-        "module": "C:/Users/Samuel/Desktop/nexrender_cli/update.js"
-      }
-    ],
     "postrender": [
       {
-        "module": "@nexrender/action-encode",
-        "output": "temp.mp4",
-        "preset": "mp4"
-      },
-      {
         "module": "@nexrender/action-copy",
-        "input": "temp.mp4",
-        "output": "C:/Users/Samuel/Desktop/nexrender_cli/renders/my_render.mp4"
-      },
-      {
-        "module": "C:/Users/Samuel/Desktop/nexrender_cli/upload.js"
+        "input": "result_00000.jpg",
+        "output": "C:/Users/samue/Desktop/fil2e.jpg"
       }
     ]
   }
