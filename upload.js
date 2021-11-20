@@ -16,10 +16,8 @@ module.exports = (job, settings, action, type) => {
   return new Promise((resolve, reject) => {
     try {
       const uploadFile = (fileName) => {
-        const isImageSequence = fileName.split(".")[1].includes("jpg");
-        const fileContent = fs.readFileSync(
-          isImageSequence ? `${fileName}00000` : fileName
-        );
+        const isImageSequence = data.isImage;
+        const fileContent = fs.readFileSync(fileName);
         const params = {
           Bucket: process.env.CLIENT_BUCKET,
           Key: `images/${fileName.split("/").pop()}`,

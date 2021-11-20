@@ -53,7 +53,7 @@ function renderVideo(item, instanceId) {
     }).then((url) => {
       const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
         item.id
-      }.${item.isImage ? ".jpg" : ".mp4"}`;
+      }.${item.isImage ? "jpg" : "mp4"}`;
       const json = getConfig(item.isImage ? "image" : "video");
       json.assets = item.fields;
 
@@ -64,13 +64,20 @@ function renderVideo(item, instanceId) {
         src: decodeURIComponent(url),
         composition: item.target,
       };
-      // update
-      json.actions.prerender[0].data = { ...item, instanceId };
-      // encode to mp4
-      json.actions.postrender[1].output = outputFile;
-      // upload
-      json.actions.postrender[2].data = { ...item, instanceId };
-      json.actions.postrender[2].filePath = outputFile;
+
+      if (item.isImage) {
+        json.template.outputModule = "JPEG";
+        json.template.outputExt = "jpg";
+        json.actions.prerender[0].data = { ...item, instanceId };
+        json.actions.postrender[0].output = outputFile;
+        json.actions.postrender[1].data = { ...item, instanceId };
+        json.actions.postrender[1].filePath = outputFile;
+      } else {
+        json.actions.prerender[0].data = { ...item, instanceId };
+        json.actions.postrender[1].output = outputFile;
+        json.actions.postrender[2].data = { ...item, instanceId };
+        json.actions.postrender[2].filePath = outputFile;
+      }
 
       render(json, {
         addLicense: true,
