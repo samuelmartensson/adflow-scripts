@@ -53,10 +53,16 @@ module.exports = (job, settings, action, type) => {
             templateName: data.templateName,
             url: awsData.Location,
             id: data.id,
-            batchName: data.batchName || null,
+            batchName: data.batchName || "",
             isImage: isImageSequence,
             fbAdsManagerFields: data.fbAdsManagerFields || null,
           };
+
+          if (data.batchName) {
+            db.collection(`users/${data.userId}/batchNames`)
+              .doc()
+              .set({ name: data.batchName });
+          }
 
           db.collection(`users/${data.userId}/videos`)
             .doc()
