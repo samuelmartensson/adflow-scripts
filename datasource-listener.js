@@ -4,14 +4,23 @@ const spawn = require("child_process").spawn;
 const fetch = require("node-fetch");
 const async = require("async");
 const AWS = require("aws-sdk");
+const firebase = require("firebase-admin");
+const serviceAccount = require("./serviceaccountcred");
 const getConfig = require("./configMiddleware").default;
 const downloadFonts = require("./font-downloader").default;
 const logger = require("./logger").default;
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
+if (firebase.apps.length === 0) {
+  firebase.initializeApp({
+    credential: firebase.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DB_URL,
+  });
+}
+
 let global_retries = 0;
-let fontInstallComplete = false;
+let setupComplete = false;
 
 const DATA_SOURCE_POLLING_INTERVAL = 1000 * 30;
 const SHUTDOWN_LIMIT = 3;
@@ -110,11 +119,16 @@ function installFonts(templateId) {
       ]);
       child.on("exit", () => {
         console.log("--- Font install complete ---");
-        fontInstallComplete = true;
         resolve();
       });
     });
   });
+}
+
+function createFolder({ userId, batchName }) {
+  const db = firebase.firestore();
+
+  db.collection(`users/${userId}/batchNames`).doc().set({ name: batchName });
 }
 
 async function fetchDatasource(url) {
@@ -147,13 +161,18 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
           const item = data[0];
 
           if (data.length > 0) {
-            if (fontInstallComplete) {
+            if (setupComplete) {
               renderVideo(item, instanceId).then(() => {
                 global_retries = 0;
                 next();
               });
             } else {
+              createFolder({
+                userId: item.userId,
+                batchName: item.batchName || "",
+              });
               installFonts(item.templateId).then(() => {
+                setupComplete = true;
                 next();
               });
             }

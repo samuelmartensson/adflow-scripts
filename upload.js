@@ -58,12 +58,6 @@ module.exports = (job, settings, action, type) => {
             fbAdsManagerFields: data.fbAdsManagerFields || null,
           };
 
-          if (data.batchName) {
-            db.collection(`users/${data.userId}/batchNames`)
-              .doc()
-              .set({ name: data.batchName });
-          }
-
           db.collection(`users/${data.userId}/videos`)
             .doc()
             .set(media)
