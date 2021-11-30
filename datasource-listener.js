@@ -125,12 +125,6 @@ function installFonts(templateId) {
   });
 }
 
-function createFolder({ userId, batchName }) {
-  const db = firebase.firestore();
-
-  db.collection(`users/${userId}/batchNames`).doc().set({ name: batchName });
-}
-
 async function fetchDatasource(url) {
   return fetch(url).then((res) => res.json());
 }
@@ -167,10 +161,6 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
                 next();
               });
             } else {
-              createFolder({
-                userId: item.userId,
-                batchName: item.batchName || "",
-              });
               installFonts(item.templateId).then(() => {
                 setupComplete = true;
                 next();
