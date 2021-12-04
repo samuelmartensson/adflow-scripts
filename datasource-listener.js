@@ -19,6 +19,7 @@ if (firebase.apps.length === 0) {
   });
 }
 
+let orgId = "";
 let global_retries = 0;
 let setupComplete = false;
 
@@ -47,8 +48,19 @@ const generateFontPath = (id) => {
   return `${id}/fonts`;
 };
 
-function terminateCurrentInstance(id) {
-  ec2.terminateInstances({ InstanceIds: [id] }, (err, data) => {});
+function terminateCurrentInstance({ instanceId, reason }) {
+  const ref = firebase
+    .firestore()
+    .collection(`organizations/${orgId}/instances`);
+  if (!reason) {
+    ref.doc(instanceId).delete();
+  }
+
+  if (reason === "error") {
+    ref.doc(instanceId).set({ state: "error" });
+  }
+
+  ec2.terminateInstances({ InstanceIds: [instanceId] }, (err, data) => {});
 }
 
 function renderVideo(item, instanceId) {
@@ -103,7 +115,7 @@ function renderVideo(item, instanceId) {
               userId: item.userId,
             },
             () => {
-              terminateCurrentInstance(instanceId);
+              terminateCurrentInstance({ instanceId, reason: "error" });
             }
           );
         });
@@ -140,14 +152,14 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
         error: JSON.stringify(err),
         userId: data[0].userId,
       });
-      terminateCurrentInstance(instanceId);
+      terminateCurrentInstance({ instanceId, reason: "error" });
     });
   }
 
   async.forever(
     (next) => {
       if (global_retries >= SHUTDOWN_LIMIT) {
-        terminateCurrentInstance(instanceId);
+        terminateCurrentInstance({ instanceId });
       } else {
         console.log("Checking data source for new data...");
 
@@ -155,14 +167,15 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
           const item = data[0];
 
           if (data.length > 0) {
-            if (setupComplete) {
-              renderVideo(item, instanceId).then(() => {
-                global_retries = 0;
+            if (!setupComplete) {
+              orgId = item.orgId;
+              installFonts(item.templateId).then(() => {
+                setupComplete = true;
                 next();
               });
             } else {
-              installFonts(item.templateId).then(() => {
-                setupComplete = true;
+              renderVideo(item, instanceId).then(() => {
+                global_retries = 0;
                 next();
               });
             }
@@ -185,7 +198,7 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
             userId: data[0].userId,
           });
         }
-        terminateCurrentInstance(instanceId);
+        terminateCurrentInstance({ instanceId, reason: "error" });
         throw err;
       });
     }

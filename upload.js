@@ -41,7 +41,7 @@ module.exports = (job, settings, action, type) => {
 
           firebase
             .database()
-            .ref(`${data.orgId}/${data.instanceId}/${data.referenceKey}`)
+            .ref(`${data.instanceId}/${data.referenceKey}`)
             .update({ "render-status": "done" });
 
           const media = {

@@ -1,7 +1,7 @@
-require('dotenv').config({ path: __dirname + '/.env' });
-const firebase = require('firebase-admin');
-const serviceAccount = require('./serviceaccountcred');
-const logger = require('./logger').default;
+require("dotenv").config({ path: __dirname + "/.env" });
+const firebase = require("firebase-admin");
+const serviceAccount = require("./serviceaccountcred");
+const logger = require("./logger").default;
 
 module.exports = (job, settings, action, type) => {
   const { data } = action;
@@ -16,15 +16,15 @@ module.exports = (job, settings, action, type) => {
     try {
       firebase
         .database()
-        .ref(`${data.orgId}/${data.instanceId}/${data.referenceKey}`)
-        .update({ 'render-status': 'queued' })
+        .ref(`${data.instanceId}/${data.referenceKey}`)
+        .update({ "render-status": "queued" })
         .then(() => {
           resolve(job);
         });
     } catch (err) {
       logger.error(
         {
-          processName: 'update',
+          processName: "update",
           error: JSON.stringify(err),
           userId: data.userId,
         },

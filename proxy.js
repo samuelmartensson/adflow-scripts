@@ -15,7 +15,7 @@ app.get("/", async (req, res) => {
 
   firebase
     .database()
-    .ref(`/${instanceId}`)
+    .ref(instanceId)
     .once("value", (snapshot) => {
       const instanceItems = snapshot.val();
 
