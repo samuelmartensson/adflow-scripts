@@ -11,11 +11,11 @@ firebase.initializeApp({
 });
 
 app.get("/", async (req, res) => {
-  const { instanceId, orgId } = req.query;
+  const { instanceId } = req.query;
 
   firebase
     .database()
-    .ref(`/${orgId}/${instanceId}`)
+    .ref(`/${instanceId}`)
     .once("value", (snapshot) => {
       const instanceItems = snapshot.val();
 
