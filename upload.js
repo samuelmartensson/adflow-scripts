@@ -51,7 +51,7 @@ module.exports = (job, settings, action, type) => {
             format: data.format,
             target: data.target,
             templateName: data.templateName,
-            scheduleId: data.scheduleId,
+            scheduleId: data.scheduleId || "",
             url: awsData.Location,
             id: data.id,
             batchName: data.batchName || "",
