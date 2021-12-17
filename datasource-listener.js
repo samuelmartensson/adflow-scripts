@@ -58,6 +58,16 @@ function terminateCurrentInstance({ instanceId, reason }) {
 
   if (reason === "error") {
     ref.doc(instanceId).set({ state: "error" });
+    firebase
+      .database()
+      .ref(instanceId)
+      .once("value", (snap) => {
+        snap.forEach((item) => {
+          if (item.val()["render-status"] !== "done") {
+            item.ref.update({ "render-status": "error" });
+          }
+        });
+      });
   }
 
   ec2.terminateInstances({ InstanceIds: [instanceId] }, (err, data) => {});
