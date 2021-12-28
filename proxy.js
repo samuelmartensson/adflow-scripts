@@ -19,10 +19,12 @@ app.get("/", async (req, res) => {
     .once("value", (snapshot) => {
       const instanceItems = snapshot.val();
 
+      if (!instanceItems) return res.json([]);
+
       res.json(
         Object.values(instanceItems).filter(
-          (item) => item["render-status"] === "ready"
-        )
+          (item) => item?.["render-status"] === "ready"
+        ) || 0
       );
     })
     .catch(() => {

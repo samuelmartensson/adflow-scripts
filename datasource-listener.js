@@ -173,30 +173,37 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
       } else {
         console.log("Checking data source for new data...");
 
-        fetchDatasource(dataSource).then((data) => {
-          const item = data[0];
+        fetchDatasource(dataSource)
+          .then((data) => {
+            const item = data[0];
 
-          if (data.length > 0) {
-            if (!setupComplete) {
-              orgId = item.orgId;
-              installFonts(item.templateId).then(() => {
-                setupComplete = true;
-                next();
-              });
+            if (data.length > 0) {
+              if (!setupComplete) {
+                orgId = item.orgId;
+                installFonts(item.templateId).then(() => {
+                  setupComplete = true;
+                  next();
+                });
+              } else {
+                renderVideo(item, instanceId).then(() => {
+                  global_retries = 0;
+                  next();
+                });
+              }
             } else {
-              renderVideo(item, instanceId).then(() => {
-                global_retries = 0;
+              setTimeout(() => {
+                console.log("Retrying...");
+                global_retries += 1;
                 next();
-              });
+              }, DATA_SOURCE_POLLING_INTERVAL);
             }
-          } else {
+          })
+          .catch((err) => {
+            console.log(err);
             setTimeout(() => {
-              console.log("Retrying...");
-              global_retries += 1;
               next();
-            }, DATA_SOURCE_POLLING_INTERVAL);
-          }
-        });
+            }, 5000);
+          });
       }
     },
     (err) => {
