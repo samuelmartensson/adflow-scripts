@@ -47,6 +47,7 @@ const image = () => {
         },
       ],
       postrender: [
+        {},
         {
           module: "@nexrender/action-copy",
           input: "result_00000.jpg",
