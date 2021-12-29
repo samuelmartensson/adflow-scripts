@@ -57,7 +57,7 @@ module.exports = (job, settings, action, type) => {
             batchName: data.batchName || "",
             isImage: isImageSequence,
             fbAdsManagerFields: data.fbAdsManagerFields || null,
-            compiledRenderConfig: data.compiledRenderConfig,
+            compiledRenderConfig: data.compiledRenderConfig || null,
           };
 
           db.collection(`users/${data.userId}/videos`)
