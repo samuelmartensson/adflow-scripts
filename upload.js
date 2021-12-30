@@ -9,11 +9,11 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
-module.exports = (job, settings, action, type) => {
+module.exports = (job, settings, action) => {
   const { data, filePath } = action;
   const db = firebase.firestore();
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const uploadFile = (fileName) => {
         const isImageSequence = data.isImage;

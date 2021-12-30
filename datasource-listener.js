@@ -19,9 +19,11 @@ if (firebase.apps.length === 0) {
   });
 }
 
-let orgId = "";
+let ORG_ID = "";
+let USER_ID = "";
 let global_retries = 0;
 let setupComplete = false;
+let INSTANCE_ID = "";
 
 const DATA_SOURCE_POLLING_INTERVAL = 1000 * 30;
 const SHUTDOWN_LIMIT = 3;
@@ -51,7 +53,7 @@ const generateFontPath = (id) => {
 function terminateCurrentInstance({ instanceId, reason }) {
   const ref = firebase
     .firestore()
-    .collection(`organizations/${orgId}/instances`);
+    .collection(`organizations/${ORG_ID}/instances`);
   if (!reason) {
     ref.doc(instanceId).delete();
   }
@@ -70,7 +72,7 @@ function terminateCurrentInstance({ instanceId, reason }) {
       });
   }
 
-  ec2.terminateInstances({ InstanceIds: [instanceId] }, (err, data) => {});
+  ec2.terminateInstances({ InstanceIds: [instanceId] });
 }
 
 async function renderVideo(item, instanceId) {
@@ -143,7 +145,7 @@ async function renderVideo(item, instanceId) {
 }
 
 function installFonts(templateId) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     downloadFonts(`${generateFontPath(templateId)}`).then(() => {
       const child = spawn("powershell.exe", [
         `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
@@ -152,6 +154,19 @@ function installFonts(templateId) {
       child.on("exit", () => {
         console.log("--- Font install complete ---");
         resolve();
+      });
+
+      child.on("error", (err) => {
+        logger.error(
+          {
+            processName: "Nexrender",
+            error: JSON.stringify(err),
+            userId: USER_ID,
+          },
+          () => {
+            terminateCurrentInstance({ INSTANCE_ID, reason: "error" });
+          }
+        );
       });
     });
   });
@@ -163,6 +178,7 @@ async function fetchDatasource(url) {
 
 meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
   console.log("Recieved instanceId: " + instanceId);
+  INSTANCE_ID = instanceId;
   const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
 
   if (err) {
@@ -189,7 +205,8 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
 
             if (data.length > 0) {
               if (!setupComplete) {
-                orgId = item.orgId;
+                ORG_ID = item.orgId;
+                USER_ID = item.userId;
                 installFonts(item.templateId).then(() => {
                   setupComplete = true;
                   next();
