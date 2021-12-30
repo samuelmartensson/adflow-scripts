@@ -25,7 +25,7 @@ let global_retries = 0;
 let setupComplete = false;
 let INSTANCE_ID = "";
 
-const DATA_SOURCE_POLLING_INTERVAL = 1000 * 30;
+const DATA_SOURCE_POLLING_INTERVAL = 1000 * 10;
 const SHUTDOWN_LIMIT = 3;
 
 const meta = new AWS.MetadataService();
@@ -72,7 +72,7 @@ function terminateCurrentInstance({ instanceId, reason }) {
       });
   }
 
-  ec2.terminateInstances({ InstanceIds: [instanceId] });
+  ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
 }
 
 async function renderVideo(item, instanceId) {
@@ -97,6 +97,19 @@ async function renderVideo(item, instanceId) {
     json.template = {
       src: decodeURIComponent(url),
       composition: item.target,
+    };
+
+    json.onRenderError = (job, err) => {
+      logger.error(
+        {
+          processName: "onRenderError",
+          error: JSON.stringify(err),
+          userId: item.userId,
+        },
+        () => {
+          terminateCurrentInstance({ instanceId, reason: "error" });
+        }
+      );
     };
 
     if (item.isImage) {
@@ -195,6 +208,7 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
   async.forever(
     (next) => {
       if (global_retries >= SHUTDOWN_LIMIT) {
+        console.log("global_retries -----> " + global_retries);
         terminateCurrentInstance({ instanceId });
       } else {
         console.log("Checking data source for new data...");
