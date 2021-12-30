@@ -3,7 +3,7 @@ const firebase = require("firebase-admin");
 const serviceAccount = require("./serviceaccountcred");
 const logger = require("./logger").default;
 
-module.exports = (job, settings, action, type) => {
+module.exports = (job, settings, action) => {
   const { data } = action;
   if (firebase.apps.length === 0) {
     firebase.initializeApp({
@@ -12,7 +12,7 @@ module.exports = (job, settings, action, type) => {
     });
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       firebase
         .database()
