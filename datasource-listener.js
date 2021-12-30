@@ -73,64 +73,73 @@ function terminateCurrentInstance({ instanceId, reason }) {
   ec2.terminateInstances({ InstanceIds: [instanceId] }, (err, data) => {});
 }
 
-function renderVideo(item, instanceId) {
+async function renderVideo(item, instanceId) {
   console.log("DATA FOUND --- STARTING RENDER");
 
-  return new Promise((resolve) => {
-    s3.getSignedUrlPromise("getObject", {
+  try {
+    const url = await s3.getSignedUrlPromise("getObject", {
       Bucket: "adflow-templates",
       Key: generateAepFilePath(item.templateId),
       Expires: 60 * 5,
-    }).then((url) => {
-      const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
-        item.id
-      }.${item.isImage ? "jpg" : "mp4"}`;
-      const json = getConfig(item.isImage ? "image" : "video");
-      json.assets = item.fields;
-
-      if (item.static) json.assets.push(...item.static);
-
-      // Config composition, pre- and postrender data
-      json.template = {
-        src: decodeURIComponent(url),
-        composition: item.target,
-      };
-
-      if (item.isImage) {
-        json.template.outputModule = "JPEG";
-        json.template.outputExt = "jpg";
-        json.actions.prerender[0].data = { ...item, instanceId };
-        json.actions.postrender[0].output = outputFile;
-        json.actions.postrender[1].data = { ...item, instanceId };
-        json.actions.postrender[1].filePath = outputFile;
-      } else {
-        json.actions.prerender[0].data = { ...item, instanceId };
-        json.actions.postrender[1].output = outputFile;
-        json.actions.postrender[2].data = { ...item, instanceId };
-        json.actions.postrender[2].filePath = outputFile;
-      }
-
-      render(json, {
-        addLicense: true,
-        workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
-        reuse: true,
-        debug: true,
-      })
-        .then(() => resolve())
-        .catch((err) => {
-          logger.error(
-            {
-              processName: "Nexrender Error",
-              error: JSON.stringify(err),
-              userId: item.userId,
-            },
-            () => {
-              terminateCurrentInstance({ instanceId, reason: "error" });
-            }
-          );
-        });
     });
-  });
+
+    const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
+      item.id
+    }.${item.isImage ? "jpg" : "mp4"}`;
+    const json = getConfig(item.isImage ? "image" : "video");
+    json.assets = item.fields;
+
+    if (item.static) json.assets.push(...item.static);
+
+    // Config composition, pre- and postrender data
+    json.template = {
+      src: decodeURIComponent(url),
+      composition: item.target,
+    };
+
+    if (item.isImage) {
+      json.template.outputModule = "JPEG";
+      json.template.outputExt = "jpg";
+      json.actions.prerender[0].data = { ...item, instanceId };
+      json.actions.postrender[0].output = outputFile;
+      json.actions.postrender[1].data = { ...item, instanceId };
+      json.actions.postrender[1].filePath = outputFile;
+    } else {
+      json.actions.prerender[0].data = { ...item, instanceId };
+      json.actions.postrender[1].output = outputFile;
+      json.actions.postrender[2].data = { ...item, instanceId };
+      json.actions.postrender[2].filePath = outputFile;
+    }
+
+    return render(json, {
+      addLicense: true,
+      workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
+      reuse: true,
+      debug: true,
+    }).catch((err) => {
+      logger.error(
+        {
+          processName: "Nexrender",
+          error: JSON.stringify(err),
+          userId: item.userId,
+        },
+        () => {
+          terminateCurrentInstance({ instanceId, reason: "error" });
+        }
+      );
+    });
+  } catch (err) {
+    logger.error(
+      {
+        processName: "renderVideo",
+        error: JSON.stringify(err),
+        userId: item.userId,
+      },
+      () => {
+        terminateCurrentInstance({ instanceId, reason: "error" });
+      }
+    );
+  }
 }
 
 function installFonts(templateId) {
@@ -139,6 +148,7 @@ function installFonts(templateId) {
       const child = spawn("powershell.exe", [
         `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
       ]);
+
       child.on("exit", () => {
         console.log("--- Font install complete ---");
         resolve();
