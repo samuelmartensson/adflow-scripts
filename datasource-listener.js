@@ -131,17 +131,6 @@ async function renderVideo(item, instanceId) {
       workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
       reuse: true,
       debug: true,
-    }).catch((err) => {
-      logger.error(
-        {
-          processName: "Nexrender",
-          error: JSON.stringify(err),
-          userId: item.userId,
-        },
-        () => {
-          terminateCurrentInstance({ instanceId, reason: "error" });
-        }
-      );
     });
   } catch (err) {
     logger.error(
