@@ -240,7 +240,11 @@ meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
             }
           })
           .catch((err) => {
-            console.log(err);
+            logger.error({
+              processName: "Proxy Error",
+              error: JSON.stringify(err),
+              userId: "",
+            });
             setTimeout(() => {
               next();
             }, 5000);
