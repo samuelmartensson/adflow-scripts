@@ -189,80 +189,88 @@ async function fetchDatasource(url) {
   return fetch(url).then((res) => res.json());
 }
 
-meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
-  console.log("Recieved instanceId: " + instanceId);
-  INSTANCE_ID = instanceId;
-  const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
+try {
+  meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
+    console.log("Recieved instanceId: " + instanceId);
+    INSTANCE_ID = instanceId;
+    const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
 
-  if (err) {
-    fetchDatasource(dataSource).then((data) => {
-      logger.error({
-        processName: "Get current instance error",
-        error: JSON.stringify(err),
-        userId: data[0].userId,
-      });
-      terminateCurrentInstance({ instanceId, reason: "error" });
-    });
-  }
-
-  async.forever(
-    (next) => {
-      if (global_retries >= SHUTDOWN_LIMIT) {
-        console.log("global_retries -----> " + global_retries);
-        terminateCurrentInstance({ instanceId });
-      } else {
-        console.log("Checking data source for new data...");
-
-        fetchDatasource(dataSource)
-          .then((data) => {
-            const item = data[0];
-
-            if (data.length > 0) {
-              if (!setupComplete) {
-                ORG_ID = item.orgId;
-                USER_ID = item.userId;
-                installFonts(item.templateId).then(() => {
-                  setupComplete = true;
-                  next();
-                });
-              } else {
-                renderVideo(item, instanceId).then(() => {
-                  global_retries = 0;
-                  next();
-                });
-              }
-            } else {
-              setTimeout(() => {
-                console.log("Retrying...");
-                global_retries += 1;
-                next();
-              }, DATA_SOURCE_POLLING_INTERVAL);
-            }
-          })
-          .catch((err) => {
-            logger.error({
-              processName: "Proxy Error",
-              error: JSON.stringify(err),
-              userId: "",
-            });
-            setTimeout(() => {
-              next();
-            }, 5000);
-          });
-      }
-    },
-    (err) => {
+    if (err) {
       fetchDatasource(dataSource).then((data) => {
-        if (data[0]?.userId) {
-          logger.error({
-            processName: "Rendering Error",
-            error: JSON.stringify(err),
-            userId: data[0].userId,
-          });
-        }
+        logger.error({
+          processName: "Get current instance error",
+          error: JSON.stringify(err),
+          userId: data[0].userId,
+        });
         terminateCurrentInstance({ instanceId, reason: "error" });
-        throw err;
       });
     }
-  );
-});
+
+    async.forever(
+      (next) => {
+        if (global_retries >= SHUTDOWN_LIMIT) {
+          console.log("global_retries -----> " + global_retries);
+          terminateCurrentInstance({ instanceId });
+        } else {
+          console.log("Checking data source for new data...");
+
+          fetchDatasource(dataSource)
+            .then((data) => {
+              const item = data[0];
+
+              if (data.length > 0) {
+                if (!setupComplete) {
+                  ORG_ID = item.orgId;
+                  USER_ID = item.userId;
+                  installFonts(item.templateId).then(() => {
+                    setupComplete = true;
+                    next();
+                  });
+                } else {
+                  renderVideo(item, instanceId).then(() => {
+                    global_retries = 0;
+                    next();
+                  });
+                }
+              } else {
+                setTimeout(() => {
+                  console.log("Retrying...");
+                  global_retries += 1;
+                  next();
+                }, DATA_SOURCE_POLLING_INTERVAL);
+              }
+            })
+            .catch((err) => {
+              logger.error({
+                processName: "Proxy Error",
+                error: JSON.stringify(err),
+                userId: "",
+              });
+              setTimeout(() => {
+                next();
+              }, 5000);
+            });
+        }
+      },
+      (err) => {
+        fetchDatasource(dataSource).then((data) => {
+          if (data[0]?.userId) {
+            logger.error({
+              processName: "Rendering Error",
+              error: JSON.stringify(err),
+              userId: data[0].userId,
+            });
+          }
+          terminateCurrentInstance({ instanceId, reason: "error" });
+          throw err;
+        });
+      }
+    );
+  });
+} catch (err) {
+  logger.error({
+    processName: "General Error",
+    error: JSON.stringify(err),
+    userId: "",
+  });
+}
