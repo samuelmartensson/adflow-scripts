@@ -22,7 +22,7 @@ module.exports = (job, settings, action) => {
 
       for (let index = 0; index < assetsLength; index++) {
         const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
-        const fileContent = fs.readFileSync(path);
+        const fileContent = fs.createReadStream(path);
         const params = {
           Bucket: "adflow-test-content",
           Key: path.split("/").pop(),
@@ -63,7 +63,7 @@ module.exports = (job, settings, action) => {
           .update({ "render-status": "done" });
 
         const db = firebase.firestore();
-        const mediaRef = db.collection(`users/${data.userId}/test`);
+        const mediaRef = db.collection(`users/${data.userId}/videos`);
         const batch = db.batch();
         metaData.forEach((item) => {
           const ref = mediaRef.doc();
