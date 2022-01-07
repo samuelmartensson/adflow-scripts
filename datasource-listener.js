@@ -88,7 +88,9 @@ async function renderVideo(item, instanceId) {
     const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
       item.id
     }.${item.isImage ? "jpg" : "mp4"}`;
-    const json = getConfig(item.isImage ? "image" : "video");
+    const json = getConfig(
+      (item.powerRender && "powerRender") || item.isImage ? "image" : "video"
+    );
     json.assets = item.fields;
 
     if (item.static) json.assets.push(...item.static);
@@ -119,6 +121,10 @@ async function renderVideo(item, instanceId) {
       json.actions.postrender[0].output = outputFile;
       json.actions.postrender[1].data = { ...item, instanceId };
       json.actions.postrender[1].filePath = outputFile;
+    } else if (item.powerRender) {
+      json.actions.postrender[0].data = { ...item };
+      json.actions.postrender[1].data = { ...item };
+      json.assets = item.items.flatMap((item) => item.fields);
     } else {
       json.actions.prerender[0].data = { ...item, instanceId };
       json.actions.postrender[1].output = outputFile;

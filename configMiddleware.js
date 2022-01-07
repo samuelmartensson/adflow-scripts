@@ -59,6 +59,32 @@ const image = () => {
     },
   };
 };
+
+const powerRender = () => {
+  return {
+    template: {
+      src: "",
+      composition: "",
+    },
+    assets: [],
+    actions: {
+      prerender: [
+        {
+          module: `${scriptPath}\\update.js`,
+        },
+      ],
+      postrender: [
+        {
+          module: `${scriptPath}\\local\\postrender.js`,
+        },
+        {
+          module: `${scriptPath}\\local\\upload.js`,
+        },
+      ],
+    },
+  };
+};
+
 /**
  *
  * @param {type} type String
@@ -66,6 +92,8 @@ const image = () => {
  */
 const getFunction = (type) => {
   switch (type) {
+    case "powerRender":
+      return powerRender();
     case "image":
       return image();
     default:
