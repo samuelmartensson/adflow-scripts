@@ -78,7 +78,7 @@ const powerRender = () => {
           module: `${scriptPath}\\postrender.js`,
         },
         {
-          module: `${scriptPath}\\upload.js`,
+          module: `${scriptPath}\\uploadMulti.js`,
         },
       ],
     },
