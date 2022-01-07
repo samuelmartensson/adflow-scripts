@@ -75,10 +75,10 @@ const powerRender = () => {
       ],
       postrender: [
         {
-          module: `${scriptPath}\\local\\postrender.js`,
+          module: `${scriptPath}\\postrender.js`,
         },
         {
-          module: `${scriptPath}\\local\\upload.js`,
+          module: `${scriptPath}\\upload.js`,
         },
       ],
     },
