@@ -183,12 +183,15 @@ function installFonts(templateId) {
       child.on("error", (err) => {
         logger.error(
           {
-            processName: "Nexrender",
+            processName: "Nexrender Font Error",
             error: JSON.stringify(err),
             userId: USER_ID,
           },
           () => {
-            terminateCurrentInstance({ INSTANCE_ID, reason: "error" });
+            terminateCurrentInstance({
+              instanceId: INSTANCE_ID,
+              reason: "error",
+            });
           }
         );
       });
