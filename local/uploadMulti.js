@@ -2,7 +2,7 @@ require("dotenv").config({ path: __dirname + "/.env" });
 const fs = require("fs");
 const AWS = require("aws-sdk");
 const firebase = require("firebase-admin");
-const { default: logger } = require("../logger");
+const { default: logger } = require("./logger");
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ID,
