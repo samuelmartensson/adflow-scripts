@@ -9,55 +9,29 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
-let retry = 0;
-let retryReadFile = 0;
-
 module.exports = (job, settings, action) => {
   const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
   const { data } = action;
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const promises = [];
 
-      const addPromise = ({ path, fileData, callback }) => {
+      for (let index = 0; index < data.itemCount; index++) {
+        const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
+        const fileContent = fs.createReadStream(path);
         const params = {
           Bucket: "adflow-consumer-endpoint",
           Key: path.split("/").pop(),
-          Body: fileData,
+          Body: fileContent,
           ContentType: "image/jpeg",
         };
 
         promises.push(s3.upload(params).promise());
+      }
 
-        console.log(path);
-        console.log("CURRENT LENGTH " + promises.length + "/" + data.itemCount);
-
-        if (promises.length === data.itemCount) {
-          callback();
-        }
-      };
-
-      const main = (callback) => {
-        for (let index = 0; index < data.itemCount; index++) {
-          const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
-          fs.readFile(path, (err, fileData) => {
-            if (err) {
-              if (retryReadFile === 0) {
-                retryReadFile += 1;
-                addPromise({ path, fileData, callback });
-              } else {
-                reject();
-              }
-            }
-
-            addPromise({ path, fileData, callback });
-          });
-        }
-      };
-
-      const upload = () => {
-        return Promise.all(promises).then((awsData) => {
+      Promise.all(promises)
+        .then((awsData) => {
           const metaData = [];
 
           awsData.forEach(({ Location, Key }) => {
@@ -98,31 +72,14 @@ module.exports = (job, settings, action) => {
           batch.commit().then(() => {
             resolve(job);
           });
+        })
+        .catch((error) => {
+          logger.error({
+            processName: "uploadMulti AWS Error",
+            error: JSON.stringify(error),
+            userId: data.userId,
+          });
         });
-      };
-
-      main(() => {
-        upload().catch((error) => {
-          if (retry === 0) {
-            retry += 1;
-            logger.error({
-              processName: "Retrying uploadMulti",
-              error: JSON.stringify(error),
-              userId: data.userId,
-            });
-            main(() =>
-              upload().catch(() => {
-                logger.error({
-                  processName: "uploadMulti AWS Error",
-                  error: JSON.stringify(error),
-                  userId: data.userId,
-                });
-                reject(job);
-              })
-            );
-          }
-        });
-      });
     } catch (error) {
       logger.error({
         processName: "uploadMulti General Error",
