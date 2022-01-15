@@ -19,7 +19,7 @@ module.exports = (job, settings, action) => {
         const isImageSequence = data.isImage;
         const fileContent = fs.readFileSync(fileName);
         const params = {
-          Bucket: process.env.CLIENT_BUCKET,
+          Bucket: "adflow-consumer-endpoint",
           Key: `images/${fileName.split("/").pop()}`,
           Body: fileContent,
           ContentType: isImageSequence ? "image/jpeg" : "video/mp4",

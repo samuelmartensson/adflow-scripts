@@ -25,7 +25,7 @@ module.exports = (job, settings, action) => {
         const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
         const fileContent = fs.createReadStream(path);
         const params = {
-          Bucket: "adflow-test-content",
+          Bucket: "adflow-consumer-endpoint",
           Key: path.split("/").pop(),
           Body: fileContent,
           ContentType: "image/jpeg",
