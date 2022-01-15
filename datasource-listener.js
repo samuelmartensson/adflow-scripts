@@ -128,7 +128,10 @@ async function renderVideo(item, instanceId) {
       json.actions.postrender[1].filePath = outputFile;
       json.actions.postrender[1].data = { ...item, instanceId };
     } else if (item.powerRender) {
-      json.actions.postrender[0].data = { ...item };
+      json.actions.postrender[0].data = {
+        ...item,
+        itemCount: item.items.length,
+      };
       json.assets = item.items.flatMap((item) => item.fields);
       json.actions.postrender[1].data = {
         ...item,

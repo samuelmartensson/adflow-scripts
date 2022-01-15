@@ -16,12 +16,9 @@ module.exports = (job, settings, action) => {
   const { data } = action;
   const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
   const uid = job.uid;
-  const assetsLength = job.assets.filter(
-    (item) => item.type === "image"
-  ).length;
 
   return new Promise((resolve, reject) => {
-    for (let index = 0; index < assetsLength; index++) {
+    for (let index = 0; index < data.itemCount; index++) {
       const { id } = data.items[index];
       const rd = fs.createReadStream(
         `${rootUserPath}/Desktop/nexrender_cli/Temp/${uid}/` +
@@ -30,11 +27,12 @@ module.exports = (job, settings, action) => {
       const wr = fs.createWriteStream(
         `${rootUserPath}/Desktop/nexrender_cli/renders/${id}.jpg`
       );
+
       try {
         rd.on("error", reject);
         wr.on("error", reject);
         wr.on("finish", () => {
-          if (index === assetsLength - 1) {
+          if (index === data.itemCount - 1) {
             resolve(job);
           }
         });

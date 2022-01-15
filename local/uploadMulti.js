@@ -16,15 +16,26 @@ module.exports = (job, settings, action) => {
   return new Promise((resolve) => {
     try {
       const promises = [...Array(data.itemCount).keys()].map((index) => {
-        const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
-        const fileContent = fs.createReadStream(path);
-        const params = {
-          Bucket: "adflow-consumer-endpoint",
-          Key: path.split("/").pop(),
-          Body: fileContent,
-          ContentType: "image/jpeg",
-        };
-        return s3.upload(params).promise();
+        return new Promise((resolve, reject) => {
+          const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
+          const stream = fs.createReadStream(path);
+          const chunks = [];
+
+          stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+          stream.on("error", (err) => reject(err));
+          stream.on("end", () => {
+            const file = Buffer.concat(chunks);
+            const params = {
+              Bucket: "adflow-consumer-endpoint",
+              Key: path.split("/").pop(),
+              Body: file,
+              ContentType: "image/jpeg",
+            };
+            s3.upload(params, (err, data) => {
+              resolve(data);
+            });
+          });
+        });
       });
 
       Promise.all(promises)
