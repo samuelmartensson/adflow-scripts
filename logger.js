@@ -1,6 +1,6 @@
-require('dotenv').config({ path: __dirname + '/.env' });
-const firebase = require('firebase-admin');
-const serviceAccount = require('./serviceaccountcred');
+require("dotenv").config({ path: __dirname + "/.env" });
+const firebase = require("firebase-admin");
+const serviceAccount = require("./serviceaccountcred");
 
 if (firebase.apps.length === 0) {
   firebase.initializeApp({
@@ -23,7 +23,7 @@ const error = ({ processName, error, userId }, callback) => {
     .doc()
     .set(objectToSet)
     .then(() => {
-      callback();
+      callback?.();
     });
 };
 
