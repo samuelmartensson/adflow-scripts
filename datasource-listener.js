@@ -51,25 +51,24 @@ const generateFontPath = (id) => {
 };
 
 function terminateCurrentInstance({ instanceId, reason }) {
+  const rtbdRef = firebase.database().ref(instanceId);
   const ref = firebase
     .firestore()
     .collection(`organizations/${ORG_ID}/instances`);
   if (!reason) {
+    rtbdRef.remove();
     ref.doc(instanceId).delete();
   }
 
   if (reason === "error") {
     ref.doc(instanceId).set({ state: "error" });
-    firebase
-      .database()
-      .ref(instanceId)
-      .once("value", (snap) => {
-        snap.forEach((item) => {
-          if (item.val()["render-status"] !== "done") {
-            item.ref.update({ "render-status": "error" });
-          }
-        });
+    rtbdRef.once("value", (snap) => {
+      snap.forEach((item) => {
+        if (item.val()["render-status"] !== "done") {
+          item.ref.update({ "render-status": "error" });
+        }
       });
+    });
   }
 
   ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
