@@ -10,6 +10,7 @@ const s3 = new AWS.S3({
 });
 
 let retry = 0;
+let retryReadFile = 0;
 
 module.exports = (job, settings, action) => {
   const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
@@ -19,29 +20,38 @@ module.exports = (job, settings, action) => {
     try {
       const promises = [];
 
+      const addPromise = ({ path, fileData, callback }) => {
+        const params = {
+          Bucket: "adflow-consumer-endpoint",
+          Key: path.split("/").pop(),
+          Body: fileData,
+          ContentType: "image/jpeg",
+        };
+
+        promises.push(s3.upload(params).promise());
+
+        console.log(path);
+        console.log("CURRENT LENGTH " + promises.length + "/" + data.itemCount);
+
+        if (promises.length === data.itemCount) {
+          callback();
+        }
+      };
+
       const main = (callback) => {
         for (let index = 0; index < data.itemCount; index++) {
           const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
           fs.readFile(path, (err, fileData) => {
-            if (err) reject();
-
-            const params = {
-              Bucket: "adflow-consumer-endpoint",
-              Key: path.split("/").pop(),
-              Body: fileData,
-              ContentType: "image/jpeg",
-            };
-
-            promises.push(s3.upload(params).promise());
-
-            console.log(path);
-            console.log(
-              "CURRENT LENGTH " + promises.length + "/" + data.itemCount
-            );
-
-            if (promises.length === data.itemCount) {
-              callback();
+            if (err) {
+              if (retryReadFile === 0) {
+                retryReadFile += 1;
+                addPromise({ path, fileData, callback });
+              } else {
+                reject();
+              }
             }
+
+            addPromise({ path, fileData, callback });
           });
         }
       };
