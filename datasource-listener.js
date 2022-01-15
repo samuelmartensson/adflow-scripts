@@ -122,15 +122,20 @@ async function renderVideo(item, instanceId) {
     if (item.isImage || item.powerRender) {
       json.template.outputModule = "JPEG";
       json.template.outputExt = "jpg";
-      json.actions.postrender[1].data = { ...item, instanceId };
     }
 
     if (item.isImage) {
       json.actions.postrender[0].output = outputFile;
       json.actions.postrender[1].filePath = outputFile;
+      json.actions.postrender[1].data = { ...item, instanceId };
     } else if (item.powerRender) {
       json.actions.postrender[0].data = { ...item };
       json.assets = item.items.flatMap((item) => item.fields);
+      json.actions.postrender[1].data = {
+        ...item,
+        instanceId,
+        itemCount: item.items.length,
+      };
     } else {
       json.actions.postrender[1].output = outputFile;
       json.actions.postrender[2].data = { ...item, instanceId };
