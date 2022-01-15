@@ -20,7 +20,7 @@ module.exports = (job, settings, action) => {
         const fileContent = fs.readFileSync(fileName);
         const params = {
           Bucket: "adflow-consumer-endpoint",
-          Key: `images/${fileName.split("/").pop()}`,
+          Key: fileName.split("/").pop(),
           Body: fileContent,
           ContentType: isImageSequence ? "image/jpeg" : "video/mp4",
         };

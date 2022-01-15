@@ -50,8 +50,10 @@ module.exports = (job, settings, action) => {
         return Promise.all(promises).then((awsData) => {
           const metaData = [];
 
-          awsData.forEach(({ Location }, index) => {
-            const item = data.items[index];
+          awsData.forEach(({ Location, Key }) => {
+            const item = data.items.find(
+              (obj) => obj.id === Key.split(".").shift()
+            );
             const { scheduleId, displayName } = item.compiledRenderConfig;
 
             metaData.push({
