@@ -15,9 +15,7 @@ module.exports = (job, settings, action) => {
 
   return new Promise((resolve) => {
     try {
-      const promises = [];
-
-      for (let index = 0; index < data.itemCount; index++) {
+      const promises = [...Array(data.itemCount).keys()].map((index) => {
         const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
         const fileContent = fs.createReadStream(path);
         const params = {
@@ -26,9 +24,8 @@ module.exports = (job, settings, action) => {
           Body: fileContent,
           ContentType: "image/jpeg",
         };
-
-        promises.push(s3.upload(params).promise());
-      }
+        return s3.upload(params).promise();
+      });
 
       Promise.all(promises)
         .then((awsData) => {
