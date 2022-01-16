@@ -9,6 +9,7 @@ const serviceAccount = require("./serviceaccountcred");
 const getConfig = require("./configMiddleware").default;
 const downloadFonts = require("./font-downloader").default;
 const logger = require("./logger").default;
+const { nexrender_path } = require("./consts");
 
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
@@ -84,9 +85,9 @@ async function renderVideo(item, instanceId) {
       Expires: 60 * 5,
     });
 
-    const outputFile = `${rootUserPath}/Desktop/nexrender_cli/renders/${
-      item.id
-    }.${item.isImage ? "jpg" : "mp4"}`;
+    const outputFile = `${nexrender_path}/renders/${item.id}.${
+      item.isImage ? "jpg" : "mp4"
+    }`;
     let json;
     if (item.powerRender) {
       json = getConfig("powerRender");
@@ -146,7 +147,7 @@ async function renderVideo(item, instanceId) {
 
     return render(json, {
       addLicense: true,
-      workpath: `${rootUserPath}/Desktop/nexrender_cli/Temp`,
+      workpath: `${nexrender_path}/Temp`,
       reuse: true,
       debug: true,
     }).catch((err) => {

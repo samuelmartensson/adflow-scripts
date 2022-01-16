@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { nexrender_path } = require("./consts");
 
 function generateResultName(n) {
   const chars = n.toString().length;
@@ -14,7 +15,6 @@ function generateResultName(n) {
 
 module.exports = (job, settings, action) => {
   const { data } = action;
-  const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
   const uid = job.uid;
 
   return new Promise((resolve, reject) => {
@@ -22,12 +22,9 @@ module.exports = (job, settings, action) => {
       return new Promise((innerResolve) => {
         const { id } = data.items[index];
         const rd = fs.createReadStream(
-          `${rootUserPath}/Desktop/nexrender_cli/Temp/${uid}/` +
-            generateResultName(index)
+          `${nexrender_path}/Temp/${uid}/` + generateResultName(index)
         );
-        const wr = fs.createWriteStream(
-          `${rootUserPath}/Desktop/nexrender_cli/renders/${id}.jpg`
-        );
+        const wr = fs.createWriteStream(`${nexrender_path}/renders/${id}.jpg`);
 
         try {
           rd.on("error", reject);

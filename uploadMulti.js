@@ -3,6 +3,7 @@ const fs = require("fs");
 const AWS = require("aws-sdk");
 const firebase = require("firebase-admin");
 const { default: logger } = require("./logger");
+const { nexrender_path } = require("./consts");
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ID,
@@ -10,14 +11,13 @@ const s3 = new AWS.S3({
 });
 
 module.exports = (job, settings, action) => {
-  const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
   const { data } = action;
 
   return new Promise((resolve) => {
     try {
       const promises = [...Array(data.itemCount).keys()].map((index) => {
         return new Promise((resolve, reject) => {
-          const path = `${rootUserPath}/Desktop/nexrender_cli/renders/${data.items[index].id}.jpg`;
+          const path = `${nexrender_path}/renders/${data.items[index].id}.jpg`;
           const stream = fs.createReadStream(path);
           const chunks = [];
 
