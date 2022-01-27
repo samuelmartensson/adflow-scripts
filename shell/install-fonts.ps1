@@ -1,5 +1,5 @@
 $FONTS = 0x14
-$Path="C:\Users\Administrator\Desktop\nexrender_cli\fonts"
+$Path="C:\Users\samue\Desktop\fonts"
 $objShell = New-Object -ComObject Shell.Application
 $objFolder = $objShell.Namespace($FONTS)
 $Fontdir = dir $Path
@@ -7,8 +7,8 @@ $Fontdir = dir $Path
 foreach($File in $Fontdir) {
     if (!($file.name -match "pfb$")) {
         $try = $true
-        $installedFonts = @(Get-ChildItem c:\windows\fonts | Where-Object {$_.PSIsContainer -eq $false} | Select-Object basename)
-        $name = $File.baseName
+        $installedFonts = @(Get-ChildItem "$env:USERPROFILE\AppData\Local\Microsoft\Windows\Fonts" | Where-Object {$_.PSIsContainer -eq $false} | Select-Object basename)
+        $name = $File.basename
 
         foreach($font in $installedFonts) {
             $font = $font -replace "_", ""

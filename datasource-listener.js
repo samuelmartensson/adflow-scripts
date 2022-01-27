@@ -25,17 +25,17 @@ let USER_ID = "";
 let global_retries = 0;
 let setupComplete = false;
 let INSTANCE_ID = "";
+let ec2region = "";
 
 const DATA_SOURCE_POLLING_INTERVAL = 1000 * 10;
 const SHUTDOWN_LIMIT = 3;
 
 const meta = new AWS.MetadataService();
-const ec2 = new AWS.EC2({
-  apiVersion: "2016-11-15",
-  region: "eu-north-1",
-  accessKeyId: process.env.AWS_ID,
-  secretAccessKey: process.env.AWS_SECRET,
+meta.request("/latest/meta-data/placement/availability-zone", (err, data) => {
+  // remove letter from region
+  ec2region = data.slice(0, -1);
 });
+
 const s3 = new AWS.S3({
   signatureVersion: "v4",
   region: "eu-north-1",
@@ -52,6 +52,13 @@ const generateFontPath = (id) => {
 };
 
 function terminateCurrentInstance({ instanceId, reason }) {
+  const ec2 = new AWS.EC2({
+    apiVersion: "2016-11-15",
+    region: ec2region,
+    accessKeyId: process.env.AWS_ID,
+    secretAccessKey: process.env.AWS_SECRET,
+  });
+
   const rtbdRef = firebase.database().ref(instanceId);
   const ref = firebase
     .firestore()
@@ -95,8 +102,6 @@ async function renderVideo(item, instanceId) {
       json = getConfig(item.isImage ? "image" : "video");
     }
     json.assets = item.fields;
-
-    if (item.static) json.assets.push(...item.static);
 
     // Config composition, pre- and postrender data
     json.template = {
@@ -150,11 +155,16 @@ async function renderVideo(item, instanceId) {
       workpath: `${nexrender_path}/Temp`,
       reuse: true,
       debug: true,
+      // We run 2022 on video AMI
+      ...(!item.isImage && {
+        binary:
+          "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
+      }),
     }).catch((err) => {
       logger.error(
         {
           processName: "Nexrender",
-          error: JSON.stringify(err),
+          error: err.toString(),
           userId: item.userId,
         },
         () => {
@@ -166,7 +176,7 @@ async function renderVideo(item, instanceId) {
     logger.error(
       {
         processName: "renderVideo",
-        error: JSON.stringify(err),
+        error: err.toString(),
         userId: item.userId,
       },
       () => {
@@ -192,7 +202,7 @@ function installFonts(templateId) {
         logger.error(
           {
             processName: "Nexrender Font Error",
-            error: JSON.stringify(err),
+            error: err.toString(),
             userId: USER_ID,
           },
           () => {
@@ -221,7 +231,7 @@ try {
       fetchDatasource(dataSource).then((data) => {
         logger.error({
           processName: "Get current instance error",
-          error: JSON.stringify(err),
+          error: err,
           userId: data[0].userId,
         });
         terminateCurrentInstance({ instanceId, reason: "error" });
@@ -265,7 +275,7 @@ try {
             .catch((err) => {
               logger.error({
                 processName: "Proxy Error",
-                error: JSON.stringify(err),
+                error: err,
                 userId: "",
               });
               setTimeout(() => {
@@ -279,7 +289,7 @@ try {
           if (data[0]?.userId) {
             logger.error({
               processName: "Rendering Error",
-              error: JSON.stringify(err),
+              error: err,
               userId: data[0].userId,
             });
           }
@@ -292,7 +302,7 @@ try {
 } catch (err) {
   logger.error({
     processName: "General Error",
-    error: JSON.stringify(err),
+    error: err,
     userId: "",
   });
 }
