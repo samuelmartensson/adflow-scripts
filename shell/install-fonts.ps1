@@ -1,5 +1,5 @@
 $FONTS = 0x14
-$Path="C:\Users\samue\Desktop\fonts"
+$Path="C:\Users\Administrator\Desktop\fonts"
 $objShell = New-Object -ComObject Shell.Application
 $objFolder = $objShell.Namespace($FONTS)
 $Fontdir = dir $Path

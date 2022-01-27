@@ -190,7 +190,7 @@ function installFonts(templateId) {
   return new Promise((resolve) => {
     downloadFonts(`${generateFontPath(templateId)}`).then(() => {
       const child = spawn("powershell.exe", [
-        `${rootUserPath}\\Desktop\\shell\\install-fonts.ps1`,
+        `${rootUserPath}\\Desktop\\scripts\\install-fonts.ps1`,
       ]);
 
       child.on("exit", () => {
