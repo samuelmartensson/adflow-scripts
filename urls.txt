@@ -10,3 +10,4 @@ https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/logger.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/postrender.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/uploadMulti.js
 https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/consts.js
+https://raw.githubusercontent.com/samuelmartensson/adflow-scripts/main/shell/install-fonts.ps1
