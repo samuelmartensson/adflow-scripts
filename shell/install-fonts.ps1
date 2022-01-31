@@ -1,5 +1,5 @@
 $FONTS = 0x14
-$Path="C:\Users\Administrator\Desktop\fonts"
+$Path="$env:USERPROFILE\Desktop\nexrender_cli\fonts"
 $objShell = New-Object -ComObject Shell.Application
 $objFolder = $objShell.Namespace($FONTS)
 $Fontdir = dir $Path
