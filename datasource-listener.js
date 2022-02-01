@@ -164,7 +164,7 @@ async function renderVideo(item, instanceId) {
       logger.error(
         {
           processName: "Nexrender",
-          error: err.toString(),
+          error: err,
           userId: item.userId,
         },
         () => {
