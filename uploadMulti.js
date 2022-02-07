@@ -27,7 +27,7 @@ module.exports = (job, settings, action) => {
             const file = Buffer.concat(chunks);
             const params = {
               Bucket: "adflow-consumer-endpoint",
-              Key: path.split("/").pop(),
+              Key: `${data.batchName}/${path.split("/").pop()}`,
               Body: file,
               ContentType: "image/jpeg",
             };

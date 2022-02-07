@@ -95,12 +95,10 @@ async function renderVideo(item, instanceId) {
     const outputFile = `${nexrender_path}/renders/${item.id}.${
       item.isImage ? "jpg" : "mp4"
     }`;
-    let json;
-    if (item.powerRender) {
-      json = getConfig("powerRender");
-    } else {
-      json = getConfig(item.isImage ? "image" : "video");
-    }
+    const json = item.powerRender
+      ? getConfig("powerRender")
+      : getConfig(item.isImage ? "image" : "video");
+
     json.assets = item.fields;
 
     // Config composition, pre- and postrender data
@@ -176,7 +174,7 @@ async function renderVideo(item, instanceId) {
     logger.error(
       {
         processName: "renderVideo",
-        error: err.toString(),
+        error: err,
         userId: item.userId,
       },
       () => {
