@@ -27,7 +27,7 @@ module.exports = (job, settings, action) => {
             const file = Buffer.concat(chunks);
             const params = {
               Bucket: "adflow-consumer-endpoint",
-              Key: `${data.batchName}/${path.split("/").pop()}`,
+              Key: `${data.userId}/${path.split("/").pop()}`,
               Body: file,
               ContentType: "image/jpeg",
             };
@@ -84,14 +84,14 @@ module.exports = (job, settings, action) => {
         .catch((error) => {
           logger.error({
             processName: "uploadMulti AWS Error",
-            error: JSON.stringify(error),
+            error,
             userId: data.userId,
           });
         });
     } catch (error) {
       logger.error({
         processName: "uploadMulti General Error",
-        error: JSON.stringify(error),
+        error,
         userId: data.userId,
       });
     }
