@@ -12,6 +12,7 @@ const s3 = new AWS.S3({
 
 module.exports = (job, settings, action) => {
   const { data } = action;
+  const keyPrefix = `${data.userId}/${data.batchName}`;
 
   return new Promise((resolve) => {
     try {
@@ -27,7 +28,7 @@ module.exports = (job, settings, action) => {
             const file = Buffer.concat(chunks);
             const params = {
               Bucket: "adflow-consumer-endpoint",
-              Key: `${data.userId}/${path.split("/").pop()}`,
+              Key: `${keyPrefix}/${path.split("/").pop()}`,
               Body: file,
               ContentType: "image/jpeg",
             };
@@ -44,8 +45,9 @@ module.exports = (job, settings, action) => {
 
           awsData.forEach(({ Location, Key }) => {
             const item = data.items.find(
-              (obj) => obj.id === Key.split(".").shift()
+              (obj) => `${keyPrefix}/${obj.id}` === Key.split(".").shift()
             );
+
             const { scheduleId, displayName } = item.compiledRenderConfig;
 
             metaData.push({
