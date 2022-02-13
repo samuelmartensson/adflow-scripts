@@ -65,6 +65,7 @@ const powerRender = () => {
     template: {
       src: "",
       composition: "",
+      continueOnMissing: true,
     },
     assets: [],
     actions: {
