@@ -153,6 +153,7 @@ async function renderVideo(item, instanceId) {
       workpath: `${nexrender_path}/Temp`,
       reuse: true,
       debug: true,
+      multiFrames: true,
       // We run 2022 on video AMI
       ...(!item.isImage && {
         binary:
