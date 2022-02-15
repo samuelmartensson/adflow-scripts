@@ -105,6 +105,7 @@ async function renderVideo(item, instanceId) {
     json.template = {
       src: decodeURIComponent(url),
       composition: item.target,
+      continueOnMissing: true,
     };
 
     json.onRenderError = (job, err) => {
