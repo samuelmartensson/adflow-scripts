@@ -155,11 +155,12 @@ async function renderVideo(item, instanceId) {
       reuse: true,
       debug: true,
       // We run 2022 on video AMI
-      ...(!item.isImage && {
-        multiFrames: true,
-        binary:
-          "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
-      }),
+      ...(!item.isImage &&
+        !item.powerRender && {
+          multiFrames: true,
+          binary:
+            "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
+        }),
     }).catch((err) => {
       logger.error(
         {
