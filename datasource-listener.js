@@ -22,19 +22,22 @@ if (firebase.apps.length === 0) {
 
 let ORG_ID = "";
 let USER_ID = "";
-let global_retries = 0;
-let setupComplete = false;
-let INSTANCE_ID = "";
-let ec2region = "";
-
-const DATA_SOURCE_POLLING_INTERVAL = 1000 * 10;
-const SHUTDOWN_LIMIT = 3;
 
 const meta = new AWS.MetadataService();
-meta.request("/latest/meta-data/placement/availability-zone", (err, data) => {
-  // remove letter from region
-  ec2region = data.slice(0, -1);
-});
+
+const getEC2region = () => {
+  return new Promise((resolve) => {
+    meta.request(
+      "/latest/meta-data/placement/availability-zone",
+      (err, data) => {
+        // remove letter from region
+        const ec2region = data.slice(0, -1);
+
+        resolve(ec2region);
+      }
+    );
+  });
+};
 
 const s3 = new AWS.S3({
   signatureVersion: "v4",
@@ -51,47 +54,72 @@ const generateFontPath = (id) => {
   return `${id}/fonts`;
 };
 
-function terminateCurrentInstance({ instanceId, reason }) {
+async function terminateCurrentInstance({ instanceId }) {
+  const ec2region = await getEC2region();
   const ec2 = new AWS.EC2({
     apiVersion: "2016-11-15",
     region: ec2region,
     accessKeyId: process.env.AWS_ID,
     secretAccessKey: process.env.AWS_SECRET,
   });
-
   const rtbdRef = firebase.database().ref(instanceId);
   const ref = firebase
     .firestore()
     .collection(`organizations/${ORG_ID}/instances`);
-  if (!reason) {
-    rtbdRef.remove();
-    ref.doc(instanceId).delete();
-  }
-
-  if (reason === "error") {
-    ref.doc(instanceId).set({ state: "error" });
-    rtbdRef.once("value", (snap) => {
-      snap.forEach((item) => {
-        if (item.val()["render-status"] !== "done") {
-          item.ref.update({ "render-status": "error" });
-        }
-      });
-    });
-  }
-
+  rtbdRef.remove();
+  ref.doc(instanceId).delete();
   ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
 }
 
-async function renderVideo(item, instanceId) {
+const runErrorAction = async ({ error, item, instanceId, batchName }) => {
+  const ref = firebase.firestore().collection(`users/${USER_ID}/renderErrors`);
+  const rtdbRef = firebase.database().ref(`${instanceId}/${item.referenceKey}`);
+  rtdbRef.update({ "render-status": "error" });
+
+  if (error?.code === "ECONNRESET") {
+    // send as retryable from frontend
+    await ref.doc().set({
+      type: "connection_failed",
+      retryable: true,
+      item,
+    });
+    return;
+  }
+
+  if (error?.reason?.includes("error downloading file")) {
+    // send faulty link and render config to user error list
+    await ref.doc().set({
+      type: "download_failed",
+      retryable: false,
+      item,
+      src: error?.meta?.src || "",
+    });
+    return;
+  }
+
+  // Send unexpected error, available for retry, if persistent, contact adflow staff
+  logger.error(
+    {
+      processName: "Nexrender",
+      error,
+      userId: item.userId,
+    },
+    async () => {
+      await ref.doc().set({
+        type: "unexpected",
+        systemFailure: true,
+        item,
+        batchName,
+      });
+      terminateCurrentInstance({ instanceId, reason: "error" });
+    }
+  );
+};
+
+async function renderVideo(item, url, instanceId) {
   console.log("DATA FOUND --- STARTING RENDER");
 
   try {
-    const url = await s3.getSignedUrlPromise("getObject", {
-      Bucket: "adflow-templates",
-      Key: generateAepFilePath(item.templateId),
-      Expires: 60 * 5,
-    });
-
     const outputFile = `${nexrender_path}/renders/${item.id}.${
       item.isImage ? "jpg" : "mp4"
     }`;
@@ -100,25 +128,11 @@ async function renderVideo(item, instanceId) {
       : getConfig(item.isImage ? "image" : "video");
 
     json.assets = item.fields;
-
     // Config composition, pre- and postrender data
     json.template = {
       src: decodeURIComponent(url),
       composition: item.target,
       continueOnMissing: true,
-    };
-
-    json.onRenderError = (job, err) => {
-      logger.error(
-        {
-          processName: "onRenderError",
-          error: JSON.stringify(err),
-          userId: item.userId,
-        },
-        () => {
-          terminateCurrentInstance({ instanceId, reason: "error" });
-        }
-      );
     };
 
     json.actions.prerender[0].data = { ...item, instanceId };
@@ -128,26 +142,27 @@ async function renderVideo(item, instanceId) {
       json.template.outputExt = "jpg";
     }
 
+    const jobMetadata = {
+      ...item,
+      instanceId,
+      itemCount: item?.items?.length || 0,
+    };
+
     if (item.isImage) {
       json.actions.postrender[0].output = outputFile;
       json.actions.postrender[1].filePath = outputFile;
       json.actions.postrender[1].data = { ...item, instanceId };
     } else if (item.powerRender) {
-      json.actions.postrender[0].data = {
-        ...item,
-        itemCount: item.items.length,
-      };
       json.assets = item.items.flatMap((item) => item.fields);
-      json.actions.postrender[1].data = {
-        ...item,
-        instanceId,
-        itemCount: item.items.length,
-      };
+      json.actions.postrender[0].data = jobMetadata;
+      json.actions.postrender[1].data = jobMetadata;
     } else {
       json.actions.postrender[1].output = outputFile;
-      json.actions.postrender[2].data = { ...item, instanceId };
+      json.actions.postrender[2].data = jobMetadata;
       json.actions.postrender[2].filePath = outputFile;
     }
+
+    const isVideo = !item.isImage && !item.powerRender;
 
     return render(json, {
       addLicense: true,
@@ -155,25 +170,16 @@ async function renderVideo(item, instanceId) {
       reuse: true,
       debug: true,
       // We run 2022 on video AMI
-      ...(!item.isImage &&
-        !item.powerRender && {
-          multiFrames: true,
-          binary:
-            "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
-        }),
-    }).catch((err) => {
-      logger.error(
-        {
-          processName: "Nexrender",
-          error: err,
-          userId: item.userId,
-        },
-        () => {
-          terminateCurrentInstance({ instanceId, reason: "error" });
-        }
-      );
+      ...(isVideo && {
+        multiFrames: true,
+        binary:
+          "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
+      }),
+    }).catch((error) => {
+      runErrorAction({ error, item, instanceId, batchName: item.batchName });
     });
   } catch (err) {
+    console.log(err);
     logger.error(
       {
         processName: "renderVideo",
@@ -187,9 +193,17 @@ async function renderVideo(item, instanceId) {
   }
 }
 
-function installFonts(templateId) {
+async function installFonts(templateId, instanceId) {
   return new Promise((resolve) => {
-    downloadFonts(`${generateFontPath(templateId)}`).then(() => {
+    (async () => {
+      await downloadFonts(generateFontPath(templateId)).catch((err) => {
+        logger.error({
+          processName: "Font download",
+          error: err,
+          userId: USER_ID,
+        });
+      });
+
       const child = spawn("powershell.exe", [
         `${rootUserPath}\\Desktop\\scripts\\install-fonts.ps1`,
       ]);
@@ -208,13 +222,13 @@ function installFonts(templateId) {
           },
           () => {
             terminateCurrentInstance({
-              instanceId: INSTANCE_ID,
+              instanceId,
               reason: "error",
             });
           }
         );
       });
-    });
+    })();
   });
 }
 
@@ -222,84 +236,78 @@ async function fetchDatasource(url) {
   return fetch(url).then((res) => res.json());
 }
 
-try {
-  meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
-    console.log("Recieved instanceId: " + instanceId);
-    INSTANCE_ID = instanceId;
-    const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
-
-    if (err) {
-      fetchDatasource(dataSource).then((data) => {
-        logger.error({
-          processName: "Get current instance error",
-          error: err,
-          userId: data[0].userId,
-        });
-        terminateCurrentInstance({ instanceId, reason: "error" });
-      });
-    }
-
-    async.forever(
-      (next) => {
-        if (global_retries >= SHUTDOWN_LIMIT) {
-          console.log("global_retries -----> " + global_retries);
-          terminateCurrentInstance({ instanceId });
-        } else {
-          console.log("Checking data source for new data...");
-
-          fetchDatasource(dataSource)
-            .then((data) => {
-              const item = data[0];
-
-              if (data.length > 0) {
-                if (!setupComplete) {
-                  ORG_ID = item.orgId;
-                  USER_ID = item.userId;
-                  installFonts(item.templateId).then(() => {
-                    setupComplete = true;
-                    next();
-                  });
-                } else {
-                  renderVideo(item, instanceId).then(() => {
-                    global_retries = 0;
-                    next();
-                  });
-                }
-              } else {
-                setTimeout(() => {
-                  console.log("Retrying...");
-                  global_retries += 1;
-                  next();
-                }, DATA_SOURCE_POLLING_INTERVAL);
-              }
-            })
-            .catch((err) => {
-              logger.error({
-                processName: "Proxy Error",
-                error: err,
-                userId: "",
-              });
-              setTimeout(() => {
-                next();
-              }, 5000);
-            });
-        }
-      },
-      (err) => {
-        fetchDatasource(dataSource).then((data) => {
-          if (data[0]?.userId) {
-            logger.error({
-              processName: "Rendering Error",
-              error: err,
-              userId: data[0].userId,
-            });
-          }
-          terminateCurrentInstance({ instanceId, reason: "error" });
-          throw err;
-        });
+const getInstanceId = () => {
+  return new Promise((resolve, reject) => {
+    meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
+      if (err) {
+        reject(err);
       }
+
+      resolve(instanceId);
+    });
+  });
+};
+
+let currentIndex = 0;
+const main = async () => {
+  const instanceId = await getInstanceId();
+  console.log("Recieved instanceId: " + instanceId);
+
+  const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
+  console.log("Fetching data source from proxy...");
+  const data = await fetchDatasource(dataSource).catch((err) => {
+    logger.error(
+      {
+        processName: "Proxy Error",
+        error: err,
+        userId: "",
+      },
+      () => terminateCurrentInstance({ instanceId })
     );
   });
+  const { orgId, userId, templateId } = data[0];
+
+  const url = await s3.getSignedUrlPromise("getObject", {
+    Bucket: "adflow-templates",
+    Key: generateAepFilePath(data[0].templateId),
+    Expires: 60 * 60,
+  });
+
+  ORG_ID = orgId;
+  USER_ID = userId;
+  await installFonts(templateId, instanceId);
+
+  async.forever(
+    (next) => {
+      (async () => {
+        if (!data[currentIndex]) {
+          await terminateCurrentInstance({ instanceId });
+        }
+
+        const item = data[currentIndex];
+        await renderVideo(item, url, instanceId);
+        currentIndex += 1;
+        next();
+      })();
+    },
+    (err) => {
+      console.log(err);
+      logger.error(
+        {
+          processName: "Async forever",
+          error: err,
+          userId: data?.[0]?.userId || "",
+        },
+        () => {
+          terminateCurrentInstance({ instanceId, reason: "error" });
+        }
+      );
+    }
+  );
+};
+
+try {
+  main();
 } catch (err) {
   logger.error({
     processName: "General Error",
