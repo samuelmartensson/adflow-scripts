@@ -44,9 +44,10 @@ module.exports = (job, settings, action) => {
           const metaData = [];
 
           awsData.forEach(({ Location, Key }) => {
-            const item = data.items.find(
-              (obj) => `${keyPrefix}/${obj.id}` === Key.split(".").shift()
-            );
+            const item = data.items.find((obj) => {
+              const parts = Key.split("/");
+              return obj.id === parts[parts.length - 1].split(".").shift();
+            });
 
             const { scheduleId, displayName } = item.compiledRenderConfig;
 

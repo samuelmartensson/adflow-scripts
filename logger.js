@@ -12,7 +12,7 @@ if (firebase.apps.length === 0) {
 const error = ({ processName, error, userId }, callback) => {
   const objectToSet = {
     batch_process: processName,
-    error,
+    error: JSON.stringify(error),
     timestamp: new Date(),
     userId,
   };
