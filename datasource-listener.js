@@ -82,6 +82,7 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
       type: "connection_failed",
       retryable: true,
       item,
+      timestamp: Date.now(),
     });
     return;
   }
@@ -93,6 +94,7 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
       retryable: false,
       item,
       src: error?.meta?.src || "",
+      timestamp: Date.now(),
     });
     return;
   }
@@ -110,6 +112,7 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
         systemFailure: true,
         item,
         batchName,
+        timestamp: Date.now(),
       });
       terminateCurrentInstance({ instanceId, reason: "error" });
     }
