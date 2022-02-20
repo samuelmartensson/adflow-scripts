@@ -291,7 +291,18 @@ const main = async () => {
         await renderVideo(item, url, instanceId);
         currentIndex += 1;
         next();
-      })();
+      })().catch((error) => {
+        logger.error(
+          {
+            processName: "Main",
+            error,
+            userId: data?.[0]?.userId || "",
+          },
+          () => {
+            terminateCurrentInstance({ instanceId });
+          }
+        );
+      });
     },
     (err) => {
       console.log(err);
