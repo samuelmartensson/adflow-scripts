@@ -207,7 +207,7 @@ async function renderVideo(item, url, instanceId) {
 }
 
 async function installFonts(templateId, instanceId) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     (async () => {
       await downloadFonts(generateFontPath(templateId)).catch((err) => {
         logger.error({
@@ -241,7 +241,9 @@ async function installFonts(templateId, instanceId) {
           }
         );
       });
-    })();
+    })().catch(() => {
+      reject();
+    });
   });
 }
 
@@ -268,6 +270,7 @@ const main = async () => {
 
   const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
   console.log("Fetching data source from proxy...");
+
   const data = await fetchDatasource(dataSource).catch((err) => {
     logger.error(
       {
@@ -278,11 +281,11 @@ const main = async () => {
       () => terminateCurrentInstance({ instanceId })
     );
   });
-  const { orgId, userId, templateId } = data[0];
 
+  const { orgId, userId, templateId } = data[0];
   const url = await s3.getSignedUrlPromise("getObject", {
     Bucket: "adflow-templates",
-    Key: generateAepFilePath(data[0].templateId),
+    Key: generateAepFilePath(templateId),
     Expires: 60 * 60,
   });
 
@@ -306,7 +309,7 @@ const main = async () => {
           {
             processName: "Main",
             error,
-            userId: data?.[0]?.userId || "",
+            userId: userId || "",
           },
           () => {
             terminateCurrentInstance({ instanceId });
@@ -320,7 +323,7 @@ const main = async () => {
         {
           processName: "Async forever",
           error: err,
-          userId: data?.[0]?.userId || "",
+          userId: userId || "",
         },
         () => {
           terminateCurrentInstance({ instanceId, reason: "error" });
