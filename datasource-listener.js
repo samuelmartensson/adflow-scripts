@@ -55,6 +55,20 @@ const generateFontPath = (id) => {
 };
 
 async function terminateCurrentInstance({ instanceId }) {
+  try {
+    const rtbdRef = firebase.database().ref(instanceId);
+    const ref = firebase
+      .firestore()
+      .collection(`organizations/${ORG_ID}/instances`);
+    rtbdRef.remove();
+    ref.doc(instanceId).delete();
+  } catch (error) {
+    logger.error({
+      processName: "Failed instance cleanup",
+      error,
+      userId: USER_ID || "",
+    });
+  }
   const ec2region = await getEC2region();
   const ec2 = new AWS.EC2({
     apiVersion: "2016-11-15",
@@ -62,12 +76,7 @@ async function terminateCurrentInstance({ instanceId }) {
     accessKeyId: process.env.AWS_ID,
     secretAccessKey: process.env.AWS_SECRET,
   });
-  const rtbdRef = firebase.database().ref(instanceId);
-  const ref = firebase
-    .firestore()
-    .collection(`organizations/${ORG_ID}/instances`);
-  rtbdRef.remove();
-  ref.doc(instanceId).delete();
+
   ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
 }
 
@@ -110,6 +119,7 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
       await ref.doc().set({
         type: "unexpected",
         systemFailure: true,
+        retryable: false,
         item,
         batchName,
         timestamp: Date.now(),
@@ -283,14 +293,14 @@ const main = async () => {
   async.forever(
     (next) => {
       (async () => {
-        if (!data[currentIndex]) {
+        if (!data?.[currentIndex]) {
           await terminateCurrentInstance({ instanceId });
+        } else {
+          const item = data[currentIndex];
+          await renderVideo(item, url, instanceId);
+          currentIndex += 1;
+          next();
         }
-
-        const item = data[currentIndex];
-        await renderVideo(item, url, instanceId);
-        currentIndex += 1;
-        next();
       })().catch((error) => {
         logger.error(
           {
