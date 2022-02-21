@@ -218,7 +218,7 @@ async function installFonts(templateId, instanceId) {
       });
 
       const child = spawn("powershell.exe", [
-        `${rootUserPath}\\Desktop\\scripts\\install-fonts.ps1`,
+        `${rootUserPath}\\Desktop\\scripts\\shell\\install-fonts.ps1`,
       ]);
 
       child.on("exit", () => {
