@@ -68,16 +68,17 @@ async function terminateCurrentInstance({ instanceId }) {
       error,
       userId: USER_ID || "",
     });
-  }
-  const ec2region = await getEC2region();
-  const ec2 = new AWS.EC2({
-    apiVersion: "2016-11-15",
-    region: ec2region,
-    accessKeyId: process.env.AWS_ID,
-    secretAccessKey: process.env.AWS_SECRET,
-  });
+  } finally {
+    const ec2region = await getEC2region();
+    const ec2 = new AWS.EC2({
+      apiVersion: "2016-11-15",
+      region: ec2region,
+      accessKeyId: process.env.AWS_ID,
+      secretAccessKey: process.env.AWS_SECRET,
+    });
 
-  ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
+    ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
+  }
 }
 
 const runErrorAction = async ({ error, item, instanceId, batchName }) => {
