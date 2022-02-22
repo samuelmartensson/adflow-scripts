@@ -1,17 +1,8 @@
 require("dotenv").config({ path: __dirname + "/.env" });
-const express = require("express");
-const app = express();
-const port = 3001;
 const firebase = require("firebase-admin");
-const serviceAccount = require("./serviceaccountcred");
 
-firebase.initializeApp({
-  credential: firebase.credential.cert(serviceAccount),
-  databaseURL: process.env.FIREBASE_DB_URL,
-});
-
-app.get("/", async (req, res) => {
-  const { instanceId } = req.query;
+const fetchQueueData = async (instanceId) => {
+  if (!instanceId) return Promise.reject();
 
   firebase
     .database()
@@ -19,21 +10,17 @@ app.get("/", async (req, res) => {
     .once("value", (snapshot) => {
       const instanceItems = snapshot.val();
 
-      if (!instanceItems) return res.json([]);
+      if (!instanceItems) return [];
 
-      res.json(
+      return (
         Object.values(instanceItems).filter(
           (item) => item?.["render-status"] === "ready"
         ) || 0
       );
     })
     .catch(() => {
-      res.send({ error: { message: "Something went wrong in proxy" } });
+      return Promise.reject();
     });
-});
+};
 
-app.listen(port, () => {
-  console.log(
-    `Instance listening for render items at http://localhost:${port}`
-  );
-});
+exports = { fetchQueueData };

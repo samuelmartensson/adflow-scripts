@@ -9,7 +9,7 @@ if (firebase.apps.length === 0) {
   });
 }
 
-const error = ({ processName, error, userId }, callback) => {
+const error = ({ processName, error, userId = "" }, callback) => {
   const objectToSet = {
     batch_process: processName,
     error: JSON.stringify({ error, errorString: error.toString() }),

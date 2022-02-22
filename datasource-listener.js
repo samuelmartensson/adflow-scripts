@@ -1,7 +1,6 @@
 require("dotenv").config({ path: __dirname + "/.env" });
 const { render } = require("@nexrender/core");
 const spawn = require("child_process").spawn;
-const fetch = require("node-fetch");
 const async = require("async");
 const AWS = require("aws-sdk");
 const firebase = require("firebase-admin");
@@ -9,9 +8,8 @@ const serviceAccount = require("./serviceaccountcred");
 const getConfig = require("./configMiddleware").default;
 const downloadFonts = require("./font-downloader").default;
 const logger = require("./logger").default;
+const { fetchQueueData } = require("./proxy");
 const { nexrender_path } = require("./consts");
-
-const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
 if (firebase.apps.length === 0) {
   firebase.initializeApp({
@@ -22,23 +20,8 @@ if (firebase.apps.length === 0) {
 
 let ORG_ID = "";
 let USER_ID = "";
-
+const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 const meta = new AWS.MetadataService();
-
-const getEC2region = () => {
-  return new Promise((resolve) => {
-    meta.request(
-      "/latest/meta-data/placement/availability-zone",
-      (err, data) => {
-        // remove letter from region
-        const ec2region = data.slice(0, -1);
-
-        resolve(ec2region);
-      }
-    );
-  });
-};
-
 const s3 = new AWS.S3({
   signatureVersion: "v4",
   region: "eu-north-1",
@@ -52,6 +35,20 @@ const generateAepFilePath = (id) => {
 
 const generateFontPath = (id) => {
   return `${id}/fonts`;
+};
+
+const getEC2region = () => {
+  return new Promise((resolve) => {
+    meta.request(
+      "/latest/meta-data/placement/availability-zone",
+      (err, data) => {
+        // remove letter from region
+        const ec2region = data.slice(0, -1);
+
+        resolve(ec2region);
+      }
+    );
+  });
 };
 
 async function terminateCurrentInstance({ instanceId }) {
@@ -125,60 +122,67 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
         batchName,
         timestamp: Date.now(),
       });
-      terminateCurrentInstance({ instanceId, reason: "error" });
+      terminateCurrentInstance({ instanceId });
     }
   );
+};
+
+const setupRenderActions = ({ item, instanceId, url }) => {
+  const outputFile = `${nexrender_path}/renders/${item.id}.${
+    item.isImage ? "jpg" : "mp4"
+  }`;
+  const json = item.powerRender
+    ? getConfig("powerRender")
+    : getConfig(item.isImage ? "image" : "video");
+
+  json.assets = item.fields;
+  json.template = {
+    src: decodeURIComponent(url),
+    composition: item.target,
+    continueOnMissing: true,
+  };
+
+  json.actions.prerender[0].data = { ...item, instanceId };
+
+  if (item.isImage || item.powerRender) {
+    json.template.outputModule = "JPEG";
+    json.template.outputExt = "jpg";
+  }
+
+  const jobMetadata = {
+    ...item,
+    instanceId,
+    itemCount: item?.items?.length || 0,
+  };
+
+  if (item.isImage) {
+    // image
+    json.actions.postrender[0].output = outputFile;
+    json.actions.postrender[1].filePath = outputFile;
+    json.actions.postrender[1].data = { ...item, instanceId };
+  } else if (item.powerRender) {
+    // powerRender
+    json.assets = item.items.flatMap((item) => item.fields);
+    json.actions.postrender[0].data = jobMetadata;
+    json.actions.postrender[1].data = jobMetadata;
+  } else {
+    // video
+    json.actions.postrender[1].output = outputFile;
+    json.actions.postrender[2].data = jobMetadata;
+    json.actions.postrender[2].filePath = outputFile;
+  }
+
+  return json;
 };
 
 async function renderVideo(item, url, instanceId) {
   console.log("DATA FOUND --- STARTING RENDER");
 
   try {
-    const outputFile = `${nexrender_path}/renders/${item.id}.${
-      item.isImage ? "jpg" : "mp4"
-    }`;
-    const json = item.powerRender
-      ? getConfig("powerRender")
-      : getConfig(item.isImage ? "image" : "video");
-
-    json.assets = item.fields;
-    // Config composition, pre- and postrender data
-    json.template = {
-      src: decodeURIComponent(url),
-      composition: item.target,
-      continueOnMissing: true,
-    };
-
-    json.actions.prerender[0].data = { ...item, instanceId };
-
-    if (item.isImage || item.powerRender) {
-      json.template.outputModule = "JPEG";
-      json.template.outputExt = "jpg";
-    }
-
-    const jobMetadata = {
-      ...item,
-      instanceId,
-      itemCount: item?.items?.length || 0,
-    };
-
-    if (item.isImage) {
-      json.actions.postrender[0].output = outputFile;
-      json.actions.postrender[1].filePath = outputFile;
-      json.actions.postrender[1].data = { ...item, instanceId };
-    } else if (item.powerRender) {
-      json.assets = item.items.flatMap((item) => item.fields);
-      json.actions.postrender[0].data = jobMetadata;
-      json.actions.postrender[1].data = jobMetadata;
-    } else {
-      json.actions.postrender[1].output = outputFile;
-      json.actions.postrender[2].data = jobMetadata;
-      json.actions.postrender[2].filePath = outputFile;
-    }
-
+    const renderConfig = setupRenderActions({ item, url, instanceId });
     const isVideo = !item.isImage && !item.powerRender;
 
-    return render(json, {
+    return render(renderConfig, {
       addLicense: true,
       workpath: `${nexrender_path}/Temp`,
       reuse: true,
@@ -201,13 +205,13 @@ async function renderVideo(item, url, instanceId) {
         userId: item.userId,
       },
       () => {
-        terminateCurrentInstance({ instanceId, reason: "error" });
+        terminateCurrentInstance({ instanceId });
       }
     );
   }
 }
 
-async function installFonts(templateId, instanceId) {
+async function installFonts({ templateId, instanceId, userId }) {
   return new Promise((resolve, reject) => {
     (async () => {
       await downloadFonts(generateFontPath(templateId)).catch((err) => {
@@ -232,12 +236,11 @@ async function installFonts(templateId, instanceId) {
           {
             processName: "Nexrender Font Error",
             error: err.toString(),
-            userId: USER_ID,
+            userId,
           },
           () => {
             terminateCurrentInstance({
               instanceId,
-              reason: "error",
             });
           }
         );
@@ -246,10 +249,6 @@ async function installFonts(templateId, instanceId) {
       reject();
     });
   });
-}
-
-async function fetchDatasource(url) {
-  return fetch(url).then((res) => res.json());
 }
 
 const getInstanceId = () => {
@@ -266,80 +265,91 @@ const getInstanceId = () => {
 
 let currentIndex = 0;
 const main = async () => {
+  // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
-  console.log("Recieved instanceId: " + instanceId);
 
-  const dataSource = `http://localhost:3001/?instanceId=${instanceId}`;
-  console.log("Fetching data source from proxy...");
+  try {
+    console.log("Recieved instanceId: " + instanceId);
+    console.log("Fetching data from RTDB...");
+    const data = await fetchQueueData(instanceId).catch((err) => {
+      logger.error(
+        {
+          processName: "Fetch queue",
+          error: err,
+        },
+        () => terminateCurrentInstance({ instanceId })
+      );
+    });
 
-  const data = await fetchDatasource(dataSource).catch((err) => {
-    logger.error(
-      {
-        processName: "Proxy Error",
-        error: err,
-        userId: "",
+    const { orgId, userId, templateId } = data[0];
+    const url = await s3.getSignedUrlPromise("getObject", {
+      Bucket: "adflow-templates",
+      Key: generateAepFilePath(templateId),
+      Expires: 60 * 60,
+    });
+
+    ORG_ID = orgId;
+    USER_ID = userId;
+    await installFonts({ templateId, instanceId, userId });
+
+    async.forever(
+      (next) => {
+        (async () => {
+          const item = data?.[currentIndex];
+
+          if (!item) {
+            await terminateCurrentInstance({ instanceId });
+          } else {
+            await renderVideo(item, url, instanceId);
+            currentIndex += 1;
+            next();
+          }
+        })().catch((error) => {
+          logger.error(
+            {
+              processName: "Main",
+              error,
+              userId,
+            },
+            () => {
+              terminateCurrentInstance({ instanceId });
+            }
+          );
+        });
       },
-      () => terminateCurrentInstance({ instanceId })
-    );
-  });
-
-  const { orgId, userId, templateId } = data[0];
-  const url = await s3.getSignedUrlPromise("getObject", {
-    Bucket: "adflow-templates",
-    Key: generateAepFilePath(templateId),
-    Expires: 60 * 60,
-  });
-
-  ORG_ID = orgId;
-  USER_ID = userId;
-  await installFonts(templateId, instanceId);
-
-  async.forever(
-    (next) => {
-      (async () => {
-        if (!data?.[currentIndex]) {
-          await terminateCurrentInstance({ instanceId });
-        } else {
-          const item = data[currentIndex];
-          await renderVideo(item, url, instanceId);
-          currentIndex += 1;
-          next();
-        }
-      })().catch((error) => {
+      (error) => {
         logger.error(
           {
-            processName: "Main",
+            processName: "Async forever",
             error,
-            userId: userId || "",
+            userId,
           },
           () => {
             terminateCurrentInstance({ instanceId });
           }
         );
-      });
-    },
-    (err) => {
-      console.log(err);
-      logger.error(
-        {
-          processName: "Async forever",
-          error: err,
-          userId: userId || "",
-        },
-        () => {
-          terminateCurrentInstance({ instanceId, reason: "error" });
-        }
-      );
-    }
-  );
+      }
+    );
+  } catch (error) {
+    logger.error(
+      {
+        processName: "Setup",
+        error,
+      },
+      () => {
+        terminateCurrentInstance({
+          instanceId,
+        });
+      }
+    );
+  }
 };
 
 try {
   main();
-} catch (err) {
+} catch (error) {
   logger.error({
     processName: "General Error",
-    error: err,
-    userId: "",
+    error,
   });
 }
