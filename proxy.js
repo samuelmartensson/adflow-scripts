@@ -23,4 +23,4 @@ const fetchQueueData = async (instanceId) => {
     });
 };
 
-exports = { fetchQueueData };
+module.exports = { fetchQueueData };
