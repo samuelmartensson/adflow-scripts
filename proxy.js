@@ -1,7 +1,7 @@
 require("dotenv").config({ path: __dirname + "/.env" });
 const firebase = require("firebase-admin");
 
-const fetchQueueData = async (instanceId = "i-0d343d22f305f353e") => {
+const fetchQueueData = async (instanceId) => {
   if (!instanceId) return Promise.reject();
 
   return new Promise((resolve, reject) => {

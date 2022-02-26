@@ -20,6 +20,8 @@ if (firebase.apps.length === 0) {
 
 let ORG_ID = "";
 let USER_ID = "";
+let DATA = [];
+let currentIndex = 0;
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 const meta = new AWS.MetadataService();
 const s3 = new AWS.S3({
@@ -73,40 +75,106 @@ async function terminateCurrentInstance({ instanceId }) {
       accessKeyId: process.env.AWS_ID,
       secretAccessKey: process.env.AWS_SECRET,
     });
-
     ec2.terminateInstances({ InstanceIds: [instanceId] }, () => {});
   }
 }
 
-const runErrorAction = async ({ error, item, instanceId, batchName }) => {
-  const ref = firebase.firestore().collection(`users/${USER_ID}/renderErrors`);
-  const rtdbRef = firebase.database().ref(`${instanceId}/${item.referenceKey}`);
-  rtdbRef.update({ "render-status": "error" });
+const logAndTerminate = (processName, instanceId, error = "", userId = "") => {
+  return new Promise(() => {
+    logger.error(
+      {
+        processName,
+        error,
+        userId,
+      },
+      () => {
+        terminateCurrentInstance({ instanceId });
+      }
+    );
+  });
+};
 
-  if (error?.code === "ECONNRESET") {
-    // send as retryable from frontend
-    await ref.doc().set({
+const rehydrateDataQueue = async ({ instanceId }) => {
+  const data = await fetchQueueData(instanceId).catch((error) => {
+    logAndTerminate("Fetch queue", instanceId, error);
+  });
+
+  DATA = data;
+
+  return null;
+};
+
+const runErrorAction = async ({
+  error,
+  item,
+  instanceId,
+  batchName,
+  isPowerRender,
+}) => {
+  const ref = firebase
+    .firestore()
+    .collection(`users/${item.userId}/renderErrors`);
+  const rtdbRef = firebase.database().ref(`${instanceId}/${item.referenceKey}`);
+  let options = { src: "", type: "" };
+
+  const requeueRehydrate = async (src) => {
+    console.log(
+      "------------------- REQUEING AND REHYDRATING -------------------"
+    );
+
+    const requeue = {
+      ...item,
+      items: item?.items?.filter(
+        (item) => !item?.fields?.find((field) => field?.src === src)
+      ),
+    };
+
+    currentIndex -= 1;
+    await rtdbRef.set(requeue);
+    await rehydrateDataQueue({ instanceId });
+    Promise.resolve();
+  };
+
+  if (error?.code === "ECONNRESET" || error?.code === "ENOTFOUND") {
+    options = {
+      src: error.message.split(" ").find((item) => item.includes("http")),
       type: "connection_failed",
-      retryable: true,
-      item,
-      timestamp: Date.now(),
-    });
-    return;
+    };
   }
 
   if (error?.reason?.includes("error downloading file")) {
-    // send faulty link and render config to user error list
-    await ref.doc().set({
-      type: "download_failed",
-      retryable: false,
-      item,
+    options = {
       src: error?.meta?.src || "",
-      timestamp: Date.now(),
-    });
-    return;
+      type: "download_failed",
+    };
   }
 
-  // Send unexpected error, available for retry, if persistent, contact adflow staff
+  if (options.src) {
+    const failedItem = !isPowerRender
+      ? item
+      : item?.items?.find((item) =>
+          item?.fields?.find((field) => field?.src === options.src)
+        );
+
+    await ref.doc().set({
+      type: options.type,
+      retryable: false,
+      item: failedItem,
+      format: item.format,
+      src: options.src,
+      timestamp: Date.now(),
+      batchName,
+    });
+
+    if (isPowerRender) {
+      await requeueRehydrate(options.src);
+    } else {
+      rtdbRef.update({ "render-status": "error" });
+    }
+
+    return Promise.resolve();
+  }
+
   logger.error(
     {
       processName: "Nexrender",
@@ -119,7 +187,9 @@ const runErrorAction = async ({ error, item, instanceId, batchName }) => {
         systemFailure: true,
         retryable: false,
         item,
+        ...(isPowerRender && { items: item.items }),
         batchName,
+        format: item.format,
         timestamp: Date.now(),
       });
       terminateCurrentInstance({ instanceId });
@@ -175,14 +245,14 @@ const setupRenderActions = ({ item, instanceId, url }) => {
   return json;
 };
 
-async function renderVideo(item, url, instanceId) {
+async function renderVideo(item, url, instanceId, next) {
   console.log("DATA FOUND --- STARTING RENDER");
 
   try {
     const renderConfig = setupRenderActions({ item, url, instanceId });
     const isVideo = !item.isImage && !item.powerRender;
 
-    return render(renderConfig, {
+    render(renderConfig, {
       addLicense: true,
       workpath: `${nexrender_path}/Temp`,
       reuse: true,
@@ -193,21 +263,25 @@ async function renderVideo(item, url, instanceId) {
         binary:
           "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
       }),
-    }).catch((error) => {
-      runErrorAction({ error, item, instanceId, batchName: item.batchName });
-    });
-  } catch (err) {
-    console.log(err);
-    logger.error(
-      {
-        processName: "renderVideo",
-        error: err,
-        userId: item.userId,
-      },
-      () => {
-        terminateCurrentInstance({ instanceId });
-      }
-    );
+    })
+      .then(() => {
+        next();
+      })
+      .catch((error) => {
+        console.log(error);
+        runErrorAction({
+          error,
+          item,
+          instanceId,
+          batchName: item.batchName,
+          isPowerRender: !!item?.powerRender,
+        }).then(() => {
+          next();
+        });
+      });
+  } catch (error) {
+    console.log(error);
+    logAndTerminate("renderVideo", instanceId, error, item.userId);
   }
 }
 
@@ -218,7 +292,7 @@ async function installFonts({ templateId, instanceId, userId }) {
         logger.error({
           processName: "Font download",
           error: err,
-          userId: USER_ID,
+          userId,
         });
       });
 
@@ -231,19 +305,8 @@ async function installFonts({ templateId, instanceId, userId }) {
         resolve();
       });
 
-      child.on("error", (err) => {
-        logger.error(
-          {
-            processName: "Nexrender Font Error",
-            error: err.toString(),
-            userId,
-          },
-          () => {
-            terminateCurrentInstance({
-              instanceId,
-            });
-          }
-        );
+      child.on("error", (error) => {
+        logAndTerminate("Nexrender Font Error", instanceId, error, userId);
       });
     })().catch(() => {
       reject();
@@ -263,7 +326,6 @@ const getInstanceId = () => {
   });
 };
 
-let currentIndex = 0;
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
@@ -271,15 +333,14 @@ const main = async () => {
   try {
     console.log("Recieved instanceId: " + instanceId);
     console.log("Fetching data from RTDB...");
-    const data = await fetchQueueData(instanceId).catch((err) => {
-      logger.error(
-        {
-          processName: "Fetch queue",
-          error: err,
-        },
-        () => terminateCurrentInstance({ instanceId })
-      );
+    const data = await fetchQueueData(instanceId).catch((error) => {
+      logAndTerminate("Fetch queue", instanceId, error);
     });
+    DATA = data;
+
+    if (!data) {
+      await logAndTerminate("No data", instanceId);
+    }
 
     const { orgId, userId, templateId } = data[0];
     const url = await s3.getSignedUrlPromise("getObject", {
@@ -295,53 +356,24 @@ const main = async () => {
     async.forever(
       (next) => {
         (async () => {
-          const item = data?.[currentIndex];
+          const item = DATA?.[currentIndex];
 
           if (!item) {
             await terminateCurrentInstance({ instanceId });
           } else {
-            await renderVideo(item, url, instanceId);
             currentIndex += 1;
-            next();
+            await renderVideo(item, url, instanceId, next);
           }
         })().catch((error) => {
-          logger.error(
-            {
-              processName: "Main",
-              error,
-              userId,
-            },
-            () => {
-              terminateCurrentInstance({ instanceId });
-            }
-          );
+          logAndTerminate("Main queue", instanceId, error, userId);
         });
       },
       (error) => {
-        logger.error(
-          {
-            processName: "Async forever",
-            error,
-            userId,
-          },
-          () => {
-            terminateCurrentInstance({ instanceId });
-          }
-        );
+        logAndTerminate("Async forever", instanceId, error, userId);
       }
     );
   } catch (error) {
-    logger.error(
-      {
-        processName: "Setup",
-        error,
-      },
-      () => {
-        terminateCurrentInstance({
-          instanceId,
-        });
-      }
-    );
+    logAndTerminate("Setup", instanceId, error);
   }
 };
 
