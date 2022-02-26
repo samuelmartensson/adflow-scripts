@@ -12,11 +12,7 @@ const fetchQueueData = async (instanceId) => {
         const instanceItems = snapshot.val();
         if (!instanceItems) return [];
 
-        resolve(
-          Object.values(instanceItems).filter(
-            (item) => item?.["render-status"] === "ready"
-          ) || 0
-        );
+        resolve(Object.values(instanceItems));
       })
       .catch(() => {
         reject();

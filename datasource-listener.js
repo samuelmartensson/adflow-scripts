@@ -21,7 +21,7 @@ if (firebase.apps.length === 0) {
 let ORG_ID = "";
 let USER_ID = "";
 let DATA = [];
-let currentIndex = 0;
+let currentIndex = -1;
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 const meta = new AWS.MetadataService();
 const s3 = new AWS.S3({
@@ -356,12 +356,12 @@ const main = async () => {
     async.forever(
       (next) => {
         (async () => {
+          currentIndex += 1;
           const item = DATA?.[currentIndex];
 
           if (!item) {
             await terminateCurrentInstance({ instanceId });
           } else {
-            currentIndex += 1;
             await renderVideo(item, url, instanceId, next);
           }
         })().catch((error) => {
