@@ -232,7 +232,12 @@ const setupRenderActions = ({ item, instanceId, url }) => {
     json.actions.postrender[1].data = { ...item, instanceId };
   } else if (item.powerRender) {
     // powerRender
-    json.assets = item.items.flatMap((item) => item.fields);
+    json.assets = item.items.flatMap((item) =>
+      item.fields.map((field, index) => ({
+        ...field,
+        layerName: `${field.layerName}${index + 1}`,
+      }))
+    );
     json.actions.postrender[0].data = jobMetadata;
     json.actions.postrender[1].data = jobMetadata;
   } else {
