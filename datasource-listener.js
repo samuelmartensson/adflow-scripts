@@ -232,8 +232,8 @@ const setupRenderActions = ({ item, instanceId, url }) => {
     json.actions.postrender[1].data = { ...item, instanceId };
   } else if (item.powerRender) {
     // powerRender
-    json.assets = item.items.flatMap((item) =>
-      item.fields.map((field, index) => ({
+    json.assets = item.items.flatMap((item, index) =>
+      item.fields.map((field) => ({
         ...field,
         layerName: `${field.layerName}${index + 1}`,
       }))
