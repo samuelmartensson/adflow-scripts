@@ -20,6 +20,7 @@ if (firebase.apps.length === 0) {
 
 let ORG_ID = "";
 let USER_ID = "";
+let BATCH_ID = "";
 let DATA = [];
 let currentIndex = -1;
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
@@ -59,8 +60,13 @@ async function terminateCurrentInstance({ instanceId }) {
     const ref = firebase
       .firestore()
       .collection(`organizations/${ORG_ID}/instances`);
-    rtbdRef.remove();
-    ref.doc(instanceId).delete();
+    await rtbdRef.remove();
+    await ref.doc(instanceId).delete();
+    await firebase
+      .firestore()
+      .collection(`users/${USER_ID}/batchNames`)
+      .doc(BATCH_ID)
+      .update({ instances: firebase.firestore.FieldValue.increment(-1) });
   } catch (error) {
     logger.error({
       processName: "Failed instance cleanup",
@@ -347,7 +353,7 @@ const main = async () => {
       await logAndTerminate("No data", instanceId);
     }
 
-    const { orgId, userId, templateId } = data[0];
+    const { orgId, userId, templateId, batchId } = data[0];
     const url = await s3.getSignedUrlPromise("getObject", {
       Bucket: "adflow-templates",
       Key: generateAepFilePath(templateId),
@@ -356,6 +362,7 @@ const main = async () => {
 
     ORG_ID = orgId;
     USER_ID = userId;
+    BATCH_ID = batchId;
     await installFonts({ templateId, instanceId, userId });
 
     async.forever(
