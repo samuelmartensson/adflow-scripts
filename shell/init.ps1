@@ -1,2 +1,2 @@
-Start-Process Powershell.exe -Argumentlist "-file C:\Users\Administrator\Desktop\shell\proxy.ps1"
-Start-Process Powershell.exe -Argumentlist "-file C:\Users\Administrator\Desktop\shell\render.ps1"
+node C:\Users\Administrator\Desktop\scripts\datasource-listener.js
+node C:\Users\Administrator\Desktop\scripts\reboot.js

@@ -4,14 +4,14 @@ const { config } = require("./config");
 async function renderVideo(formatBatch) {
   const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
-  config.template.outputModule = "JPEG";
-  config.template.outputExt = "jpg";
+  // config.template.outputModule = "JPEG";
+  // config.template.outputExt = "jpg";
 
-  config.assets = formatBatch.items.flatMap((item) => item.fields);
-  config.actions.postrender[0].data = {
-    ...formatBatch,
-    itemCount: formatBatch.items.length,
-  };
+  config.assets = formatBatch.fields;
+  // config.actions.postrender[0].data = {
+  //   ...formatBatch,
+  //   itemCount: formatBatch.items.length,
+  // };
   // config.actions.predownload[0].data = {
   //   ...formatBatch,
   //   itemCount: formatBatch.items.length,
@@ -33,51 +33,27 @@ async function renderVideo(formatBatch) {
 }
 
 const example = {
-  items: [
+  fields: [
     {
-      fields: [
-        {
-          layerName: "product_name",
-          property: "Source Text",
-          type: "data",
-          value: "Clean 90 Bee Bird",
-        },
-        {
-          layerName: "img01",
-          src: "https://adflow-consumer-endpoint.s3.eu-north-1.amazonaws.com/WvszG3bsWDQ63qYhmPQ1B6XIxoy2/IOPS%20ALL/d995995a-f7c5-4ec4-833b-8c2bfbc1436a.jpg",
-          type: "image",
-        },
-      ],
+      layerName: "product_name",
+      property: "Source Text",
+      type: "data",
+      value: "Clean 90 Bee Bird",
     },
     {
-      fields: [
-        {
-          layerName: "product_name",
-          property: "Source Text",
-          type: "data",
-          value: "Clean 123 Bee Bird",
-        },
-        {
-          layerName: "img01",
-          src: "https://adflow-consumer-endpoint.s3.eu-north-1.amazonaws.com/WvszG3bsWDQ63qYhmPQ1B6XIxoy2/IOPS%20ALL/d995995a-f7c5-4ec4-833b-8c2bfbc1436a.jpg",
-          type: "image",
-        },
-      ],
+      layerName: "img01",
+      src: "https://source.unsplash.com/random",
+      type: "image",
     },
     {
-      fields: [
-        {
-          layerName: "product_name",
-          property: "Source Text",
-          type: "data",
-          value: "Clean xxx Bee Bird",
-        },
-        {
-          layerName: "img01",
-          src: "https://live.arigatocdn.com/media/catalog/product/1/1/11164_category.jpg",
-          type: "image",
-        },
-      ],
+      layerName: "img02",
+      src: "https://source.unsplash.com/random",
+      type: "image",
+    },
+    {
+      layerName: "img03",
+      src: "https://source.unsplash.com/random",
+      type: "image",
     },
   ],
   batchName: "Men shoes",

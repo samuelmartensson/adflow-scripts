@@ -2,8 +2,8 @@ const desktopPath = `${process.env.USERPROFILE}\\Desktop\\nexrender_cli`;
 
 exports.config = {
   template: {
-    src: "file:///G:/My Drive/Adflow/- Clients -/Axel Arigato/Templates/AXELARIGATO_01_FIT_HEIGHT_MASK_FIX.aep",
-    composition: "AXEL_ARIGATO_1:1_1080x1080px",
+    src: "file:///C:/Users/samue/Downloads/test.aep",
+    composition: "02_AXEL_ARIGATO_1:1_1080x1080px",
     outputExt: "avi",
     outputModule: "Lossless",
   },
@@ -17,8 +17,8 @@ exports.config = {
     postrender: [
       {
         module: "@nexrender/action-copy",
-        input: "result_00000.jpg",
-        output: `${desktopPath}\\renders\\my_render.jpg`,
+        input: "result.avi",
+        output: `${desktopPath}\\renders\\my_render.mp4`,
       },
     ],
   },

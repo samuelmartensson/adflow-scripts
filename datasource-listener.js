@@ -8,6 +8,7 @@ const serviceAccount = require("./serviceaccountcred");
 const getConfig = require("./configMiddleware").default;
 const downloadFonts = require("./font-downloader").default;
 const logger = require("./logger").default;
+const { getEC2region, getInstanceId } = require("./utils");
 const { fetchQueueData } = require("./proxy");
 const { nexrender_path } = require("./consts");
 
@@ -24,7 +25,6 @@ let BATCH_ID = "";
 let DATA = [];
 let currentIndex = -1;
 const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
-const meta = new AWS.MetadataService();
 const s3 = new AWS.S3({
   signatureVersion: "v4",
   region: "eu-north-1",
@@ -38,20 +38,6 @@ const generateAepFilePath = (id) => {
 
 const generateFontPath = (id) => {
   return `${id}/fonts`;
-};
-
-const getEC2region = () => {
-  return new Promise((resolve) => {
-    meta.request(
-      "/latest/meta-data/placement/availability-zone",
-      (err, data) => {
-        // remove letter from region
-        const ec2region = data.slice(0, -1);
-
-        resolve(ec2region);
-      }
-    );
-  });
 };
 
 async function terminateCurrentInstance({ instanceId }) {
@@ -325,18 +311,6 @@ async function installFonts({ templateId, instanceId, userId }) {
   });
 }
 
-const getInstanceId = () => {
-  return new Promise((resolve, reject) => {
-    meta.request("/latest/meta-data/instance-id", (err, instanceId) => {
-      if (err) {
-        reject(err);
-      }
-
-      resolve(instanceId);
-    });
-  });
-};
-
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
@@ -347,7 +321,7 @@ const main = async () => {
     const data = await fetchQueueData(instanceId).catch((error) => {
       logAndTerminate("Fetch queue", instanceId, error);
     });
-    DATA = data;
+    DATA = data.filter((item) => item["render-status"] !== "done");
 
     if (!data) {
       await logAndTerminate("No data", instanceId);
