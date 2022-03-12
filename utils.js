@@ -1,3 +1,4 @@
+require("dotenv").config({ path: __dirname + "/.env" });
 const AWS = require("aws-sdk");
 const meta = new AWS.MetadataService();
 
