@@ -48,11 +48,13 @@ async function terminateCurrentInstance({ instanceId }) {
       .collection(`organizations/${ORG_ID}/instances`);
     await rtbdRef.remove();
     await ref.doc(instanceId).delete();
-    await firebase
-      .firestore()
-      .collection(`users/${USER_ID}/batchNames`)
-      .doc(BATCH_ID)
-      .update({ instances: firebase.firestore.FieldValue.increment(-1) });
+    if (BATCH_ID) {
+      await firebase
+        .firestore()
+        .collection(`users/${USER_ID}/batchNames`)
+        .doc(BATCH_ID)
+        .update({ instances: firebase.firestore.FieldValue.increment(-1) });
+    }
   } catch (error) {
     logger.error({
       processName: "Failed instance cleanup",
