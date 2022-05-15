@@ -2,6 +2,8 @@ require("dotenv").config({ path: __dirname + "/.env" });
 const AWS = require("aws-sdk");
 const https = require("https");
 const fs = require("fs");
+const spawn = require("child_process").spawn;
+const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 
 const s3 = new AWS.S3({
   signatureVersion: "v4",
@@ -10,7 +12,36 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
-const main = (Prefix) => {
+const generateFontPath = (id) => {
+  return `${id}/fonts`;
+};
+
+async function installFonts({ templateId, onError }) {
+  return new Promise((resolve, reject) => {
+    (async () => {
+      await downloadFonts(generateFontPath(templateId)).catch((error) => {
+        onError("Font download", error);
+      });
+
+      const child = spawn("powershell.exe", [
+        `${rootUserPath}\\Desktop\\scripts\\shell\\install-fonts.ps1`,
+      ]);
+
+      child.on("exit", () => {
+        console.log("--- Font install complete ---");
+        resolve();
+      });
+
+      child.on("error", (error) => {
+        onError("Nexrender Font Error", error);
+      });
+    })().catch(() => {
+      reject();
+    });
+  });
+}
+
+const downloadFonts = (Prefix) => {
   const params = {
     Bucket: "adflow-templates",
     Prefix,
@@ -60,4 +91,4 @@ const main = (Prefix) => {
   });
 };
 
-exports.default = main;
+module.exports = { installFonts };

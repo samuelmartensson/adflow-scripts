@@ -1,12 +1,11 @@
 require("dotenv").config({ path: __dirname + "/.env" });
 const { render } = require("@nexrender/core");
-const spawn = require("child_process").spawn;
 const async = require("async");
 const AWS = require("aws-sdk");
 const firebase = require("firebase-admin");
 const serviceAccount = require("./serviceaccountcred");
 const getConfig = require("./configMiddleware").default;
-const downloadFonts = require("./font-downloader").default;
+const { installFonts } = require("./font-downloader");
 const logger = require("./logger").default;
 const { getEC2region, getInstanceId } = require("./utils");
 const { fetchQueueData } = require("./proxy");
@@ -24,7 +23,6 @@ let USER_ID = "";
 let BATCH_ID = "";
 let DATA = [];
 let currentIndex = -1;
-const rootUserPath = process.env.USERPROFILE.replace(/\\/g, "/");
 const s3 = new AWS.S3({
   signatureVersion: "v4",
   region: "eu-north-1",
@@ -34,10 +32,6 @@ const s3 = new AWS.S3({
 
 const generateAepFilePath = (id) => {
   return `${id}/project.aep`;
-};
-
-const generateFontPath = (id) => {
-  return `${id}/fonts`;
 };
 
 async function terminateCurrentInstance({ instanceId }) {
@@ -129,7 +123,11 @@ const runErrorAction = async ({
     Promise.resolve();
   };
 
-  if (error?.code === "ECONNRESET" || error?.code === "ENOTFOUND") {
+  if (
+    error?.code === "ECONNRESET" ||
+    error?.code === "ENOTFOUND" ||
+    error?.code.includes("ERR_INVALID_URL")
+  ) {
     options = {
       src: error.message.split(" ").find((item) => item.includes("http")),
       type: "connection_failed",
@@ -191,7 +189,7 @@ const runErrorAction = async ({
   );
 };
 
-const setupRenderActions = ({ item, instanceId, url }) => {
+const setupRenderActions = async ({ item, instanceId, url, templateId }) => {
   const outputFile = `${nexrender_path}/renders/${item.id}.${
     item.isImage ? "jpg" : "mp4"
   }`;
@@ -199,7 +197,16 @@ const setupRenderActions = ({ item, instanceId, url }) => {
     ? getConfig("powerRender")
     : getConfig(item.isImage ? "image" : "video");
 
-  json.assets = item.fields;
+  const { staticFields = [] } =
+    (
+      await firebase
+        .firestore()
+        .collection("templates")
+        .where("id", "==", templateId)
+        .get()
+    )?.docs?.[0]?.data() || [];
+
+  json.assets = [...item.fields, ...staticFields];
   json.template = {
     src: decodeURIComponent(url),
     composition: item.target,
@@ -244,11 +251,16 @@ const setupRenderActions = ({ item, instanceId, url }) => {
   return json;
 };
 
-async function renderVideo(item, url, instanceId, next) {
+async function renderVideo(item, url, instanceId, templateId, next) {
   console.log("DATA FOUND --- STARTING RENDER");
 
   try {
-    const renderConfig = setupRenderActions({ item, url, instanceId });
+    const renderConfig = setupRenderActions({
+      item,
+      url,
+      instanceId,
+      templateId,
+    });
     const isVideo = !item.isImage && !item.powerRender;
 
     render(renderConfig, {
@@ -284,35 +296,6 @@ async function renderVideo(item, url, instanceId, next) {
   }
 }
 
-async function installFonts({ templateId, instanceId, userId }) {
-  return new Promise((resolve, reject) => {
-    (async () => {
-      await downloadFonts(generateFontPath(templateId)).catch((err) => {
-        logger.error({
-          processName: "Font download",
-          error: err,
-          userId,
-        });
-      });
-
-      const child = spawn("powershell.exe", [
-        `${rootUserPath}\\Desktop\\scripts\\shell\\install-fonts.ps1`,
-      ]);
-
-      child.on("exit", () => {
-        console.log("--- Font install complete ---");
-        resolve();
-      });
-
-      child.on("error", (error) => {
-        logAndTerminate("Nexrender Font Error", instanceId, error, userId);
-      });
-    })().catch(() => {
-      reject();
-    });
-  });
-}
-
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
@@ -339,7 +322,12 @@ const main = async () => {
     ORG_ID = orgId;
     USER_ID = userId;
     BATCH_ID = batchId;
-    await installFonts({ templateId, instanceId, userId });
+    await installFonts({
+      templateId,
+      userId,
+      onError: (reason, error) =>
+        logAndTerminate(reason, instanceId, error, userId),
+    });
 
     async.forever(
       (next) => {
@@ -350,7 +338,7 @@ const main = async () => {
           if (!item) {
             await terminateCurrentInstance({ instanceId });
           } else {
-            await renderVideo(item, url, instanceId, next);
+            await renderVideo(item, url, instanceId, templateId, next);
           }
         })().catch((error) => {
           logAndTerminate("Main queue", instanceId, error, userId);
