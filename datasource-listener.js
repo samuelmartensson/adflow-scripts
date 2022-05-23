@@ -126,7 +126,7 @@ const runErrorAction = async ({
   if (
     error?.code === "ECONNRESET" ||
     error?.code === "ENOTFOUND" ||
-    error?.code.includes("ERR_INVALID_URL")
+    error?.code?.includes("ERR_INVALID_URL")
   ) {
     options = {
       src: error.message.split(" ").find((item) => item.includes("http")),
