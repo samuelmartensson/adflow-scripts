@@ -206,7 +206,6 @@ const setupRenderActions = async ({ item, instanceId, url, templateId }) => {
         .get()
     )?.docs?.[0]?.data() || [];
 
-  json.assets = [...item.fields, ...staticFields];
   json.template = {
     src: decodeURIComponent(url),
     composition: item.target,
@@ -228,6 +227,7 @@ const setupRenderActions = async ({ item, instanceId, url, templateId }) => {
 
   if (item.isImage) {
     // image
+    json.assets = [...item.fields, ...staticFields];
     json.actions.postrender[0].output = outputFile;
     json.actions.postrender[1].filePath = outputFile;
     json.actions.postrender[1].data = { ...item, instanceId };
@@ -243,6 +243,7 @@ const setupRenderActions = async ({ item, instanceId, url, templateId }) => {
     json.actions.postrender[1].data = jobMetadata;
   } else {
     // video
+    json.assets = [...item.fields, ...staticFields];
     json.actions.postrender[1].output = outputFile;
     json.actions.postrender[2].data = jobMetadata;
     json.actions.postrender[2].filePath = outputFile;
