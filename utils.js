@@ -1,6 +1,12 @@
 require("dotenv").config({ path: __dirname + "/.env" });
 const AWS = require("aws-sdk");
 const meta = new AWS.MetadataService();
+const { nexrender_path } = require("./consts");
+const getConfig = require("./configMiddleware").default;
+
+const generateAepFilePath = (id) => {
+  return `${id}/project.aep`;
+};
 
 const getEC2region = () => {
   return new Promise((resolve) => {
@@ -40,4 +46,66 @@ const rebootInstance = async () => {
   ec2.rebootInstances({ InstanceIds: [instanceId] }, () => {});
 };
 
-module.exports = { getEC2region, getInstanceId, rebootInstance };
+const setupRenderActions = async ({ item, instanceId, url, staticFields }) => {
+  const { isImage, powerRender } = item;
+  const outputFile = `${nexrender_path}/renders/${item.id}.${
+    isImage ? "jpg" : "mp4"
+  }`;
+  const json = powerRender
+    ? getConfig("powerRender")
+    : getConfig(isImage ? "image" : "video");
+
+  json.template = {
+    src: decodeURIComponent(url),
+    composition: item.target,
+    continueOnMissing: true,
+  };
+
+  json.actions.prerender[0].data = { ...item, instanceId };
+
+  if (isImage || powerRender) {
+    json.template.outputModule = "JPEG";
+    json.template.outputExt = "jpg";
+  }
+
+  const jobMetadata = {
+    ...item,
+    instanceId,
+    itemCount: item?.items?.length || 0,
+  };
+
+  if (powerRender) {
+    json.assets = item.items.flatMap((item, index) =>
+      item.fields.map((field) => ({
+        ...field,
+        layerName: `${field.layerName}${index + 1}`,
+      }))
+    );
+    json.actions.postrender[0].data = jobMetadata;
+    json.actions.postrender[1].data = jobMetadata;
+    return json;
+  }
+
+  if (isImage) {
+    json.assets = [...item.fields, ...staticFields];
+    json.actions.postrender[0].output = outputFile;
+    json.actions.postrender[1].filePath = outputFile;
+    json.actions.postrender[1].data = { ...item, instanceId };
+    return json;
+  }
+
+  // video
+  json.assets = [...item.fields, ...staticFields];
+  json.actions.postrender[1].output = outputFile;
+  json.actions.postrender[2].data = jobMetadata;
+  json.actions.postrender[2].filePath = outputFile;
+  return json;
+};
+
+module.exports = {
+  getEC2region,
+  getInstanceId,
+  rebootInstance,
+  generateAepFilePath,
+  setupRenderActions,
+};

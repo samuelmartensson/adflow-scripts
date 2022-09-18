@@ -4,10 +4,14 @@ const async = require("async");
 const AWS = require("aws-sdk");
 const firebase = require("firebase-admin");
 const serviceAccount = require("./serviceaccountcred");
-const getConfig = require("./configMiddleware").default;
 const { installFonts } = require("./font-downloader");
 const logger = require("./logger").default;
-const { getEC2region, getInstanceId } = require("./utils");
+const {
+  getEC2region,
+  getInstanceId,
+  generateAepFilePath,
+  setupRenderActions,
+} = require("./utils");
 const { fetchQueueData } = require("./proxy");
 const { nexrender_path } = require("./consts");
 
@@ -29,10 +33,6 @@ const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ID,
   secretAccessKey: process.env.AWS_SECRET,
 });
-
-const generateAepFilePath = (id) => {
-  return `${id}/project.aep`;
-};
 
 async function terminateCurrentInstance({ instanceId }) {
   try {
@@ -189,70 +189,14 @@ const runErrorAction = async ({
   );
 };
 
-const setupRenderActions = async ({ item, instanceId, url, templateId }) => {
-  const outputFile = `${nexrender_path}/renders/${item.id}.${
-    item.isImage ? "jpg" : "mp4"
-  }`;
-  const json = item.powerRender
-    ? getConfig("powerRender")
-    : getConfig(item.isImage ? "image" : "video");
-
-  const { staticFields = [] } =
-    (
-      await firebase
-        .firestore()
-        .collection("templates")
-        .where("id", "==", templateId)
-        .get()
-    )?.docs?.[0]?.data() || [];
-
-  json.template = {
-    src: decodeURIComponent(url),
-    composition: item.target,
-    continueOnMissing: true,
-  };
-
-  json.actions.prerender[0].data = { ...item, instanceId };
-
-  if (item.isImage || item.powerRender) {
-    json.template.outputModule = "JPEG";
-    json.template.outputExt = "jpg";
-  }
-
-  const jobMetadata = {
-    ...item,
-    instanceId,
-    itemCount: item?.items?.length || 0,
-  };
-
-  if (item.isImage) {
-    // image
-    json.assets = [...item.fields, ...staticFields];
-    json.actions.postrender[0].output = outputFile;
-    json.actions.postrender[1].filePath = outputFile;
-    json.actions.postrender[1].data = { ...item, instanceId };
-  } else if (item.powerRender) {
-    // powerRender
-    json.assets = item.items.flatMap((item, index) =>
-      item.fields.map((field) => ({
-        ...field,
-        layerName: `${field.layerName}${index + 1}`,
-      }))
-    );
-    json.actions.postrender[0].data = jobMetadata;
-    json.actions.postrender[1].data = jobMetadata;
-  } else {
-    // video
-    json.assets = [...item.fields, ...staticFields];
-    json.actions.postrender[1].output = outputFile;
-    json.actions.postrender[2].data = jobMetadata;
-    json.actions.postrender[2].filePath = outputFile;
-  }
-
-  return json;
-};
-
-async function renderVideo(item, url, instanceId, templateId, next) {
+async function renderVideo({
+  item,
+  url,
+  instanceId,
+  templateId,
+  staticFields,
+  next,
+}) {
   console.log("DATA FOUND --- STARTING RENDER");
 
   try {
@@ -261,6 +205,7 @@ async function renderVideo(item, url, instanceId, templateId, next) {
       url,
       instanceId,
       templateId,
+      staticFields,
     });
     const isVideo = !item.isImage && !item.powerRender;
 
@@ -319,6 +264,14 @@ const main = async () => {
       Key: generateAepFilePath(templateId),
       Expires: 60 * 60,
     });
+    const { staticFields = [] } =
+      (
+        await firebase
+          .firestore()
+          .collection("templates")
+          .where("id", "==", templateId)
+          .get()
+      )?.docs?.[0]?.data() || [];
 
     ORG_ID = orgId;
     USER_ID = userId;
@@ -339,7 +292,14 @@ const main = async () => {
           if (!item) {
             await terminateCurrentInstance({ instanceId });
           } else {
-            await renderVideo(item, url, instanceId, templateId, next);
+            await renderVideo({
+              item,
+              url,
+              instanceId,
+              templateId,
+              next,
+              staticFields,
+            });
           }
         })().catch((error) => {
           logAndTerminate("Main queue", instanceId, error, userId);
