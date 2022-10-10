@@ -25,7 +25,6 @@ if (firebase.apps.length === 0) {
 let ORG_ID = "";
 let USER_ID = "";
 let BATCH_ID = "";
-let SCHEDULED = false;
 let DATA = [];
 let currentIndex = -1;
 const s3 = new AWS.S3({
@@ -43,7 +42,7 @@ async function terminateCurrentInstance({ instanceId }) {
       .collection(`organizations/${ORG_ID}/instances`);
     await rtbdRef.remove();
     await ref.doc(instanceId).delete();
-    if (BATCH_ID && !SCHEDULED) {
+    if (BATCH_ID) {
       await firebase
         .firestore()
         .collection(`users/${USER_ID}/batchNames`)
@@ -274,20 +273,9 @@ const main = async () => {
           .get()
       )?.docs?.[0]?.data() || [];
 
-    const { scheduled = false } = (
-      await firebase
-        .firestore()
-        .collection("users")
-        .doc(userId)
-        .collection("batchNames")
-        .doc(batchId)
-        .get()
-    ).data();
-
     ORG_ID = orgId;
     USER_ID = userId;
     BATCH_ID = batchId;
-    SCHEDULED = scheduled;
 
     await installFonts({
       templateId,
