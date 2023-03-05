@@ -2,6 +2,7 @@ require("dotenv").config({ path: __dirname + "/.env" });
 const { render } = require("@nexrender/core");
 const async = require("async");
 const AWS = require("aws-sdk");
+const fs = require("fs");
 const firebase = require("firebase-admin");
 const serviceAccount = require("./serviceaccountcred");
 const { installFonts } = require("./font-downloader");
@@ -25,6 +26,9 @@ if (firebase.apps.length === 0) {
 let ORG_ID = "";
 let USER_ID = "";
 let BATCH_ID = "";
+let JOB_UID = "";
+let AE_ERROR = "";
+let ERROR_LOG = "";
 let DATA = [];
 let currentIndex = -1;
 const s3 = new AWS.S3({
@@ -136,7 +140,7 @@ const runErrorAction = async ({
 
   if (error?.reason?.includes("error downloading file")) {
     options = {
-      src: error?.meta?.src || "",
+      src: error?.meta?.src || "(no source found)",
       type: "download_failed",
     };
   }
@@ -167,10 +171,22 @@ const runErrorAction = async ({
     return Promise.resolve();
   }
 
+  if (JOB_UID) {
+    const error_log = fs.readFileSync(
+      `${nexrender_path}/Temp/aerender-${JOB_UID}.log`,
+      "utf-8"
+    );
+    ERROR_LOG = error_log;
+  }
+
   logger.error(
     {
       processName: "Nexrender",
-      error,
+      error: {
+        ae_error: AE_ERROR,
+        error_log: ERROR_LOG,
+        error: error.toString(),
+      },
       userId: item.userId,
     },
     async () => {
@@ -198,15 +214,20 @@ async function renderVideo({
   next,
 }) {
   console.log("DATA FOUND --- STARTING RENDER");
-
   try {
-    const renderConfig = setupRenderActions({
-      item,
-      url,
-      instanceId,
-      templateId,
-      staticFields,
-    });
+    const renderConfig = {
+      ...setupRenderActions({
+        item,
+        url,
+        instanceId,
+        templateId,
+        staticFields,
+      }),
+      onRenderError: (job, error) => {
+        AE_ERROR = error;
+        JOB_UID = job.uid;
+      },
+    };
     const isVideo = !item.isImage && !item.powerRender;
 
     render(renderConfig, {
@@ -227,7 +248,7 @@ async function renderVideo({
       .catch((error) => {
         console.log(error);
         runErrorAction({
-          error,
+          error: error.toString(),
           item,
           instanceId,
           batchName: item.batchName,

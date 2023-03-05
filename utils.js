@@ -46,7 +46,7 @@ const rebootInstance = async () => {
   ec2.rebootInstances({ InstanceIds: [instanceId] }, () => {});
 };
 
-const setupRenderActions = async ({ item, instanceId, url, staticFields }) => {
+const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
   const { isImage, powerRender } = item;
   const outputFile = `${nexrender_path}/renders/${item.id}.${
     isImage ? "jpg" : "mp4"
