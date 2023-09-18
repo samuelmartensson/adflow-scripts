@@ -39,10 +39,7 @@ module.exports = (job, settings, action) => {
 
           console.log(`File uploaded successfully. ${awsData.Location}`);
 
-          firebase
-            .database()
-            .ref(`${data.instanceId}/${data.referenceKey}`)
-            .update({ "render-status": "done" });
+          firebase.database().ref(`${data.instanceId}/${data.referenceKey}`).update({ "render-status": "done" });
 
           const media = {
             created_date: new Date().toISOString(),
@@ -61,7 +58,7 @@ module.exports = (job, settings, action) => {
           };
 
           db.collection(`users/${data.userId}/videos`)
-            .doc()
+            .doc(data.id)
             .set(media)
             .then(() => resolve(job));
         });
