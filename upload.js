@@ -58,7 +58,7 @@ module.exports = (job, settings, action) => {
           };
 
           db.collection(`users/${data.userId}/videos`)
-            .doc(data.id)
+            .doc()
             .set(media)
             .then(() => resolve(job));
         });

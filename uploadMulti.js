@@ -68,10 +68,7 @@ module.exports = (job, settings, action) => {
             });
           });
 
-          firebase
-            .database()
-            .ref(`${data.instanceId}/${data.referenceKey}`)
-            .update({ "render-status": "done" });
+          firebase.database().ref(`${data.instanceId}/${data.referenceKey}`).update({ "render-status": "done" });
 
           const db = firebase.firestore();
           const mediaRef = db.collection(`users/${data.userId}/videos`);
