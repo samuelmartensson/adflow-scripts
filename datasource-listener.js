@@ -248,7 +248,7 @@ async function renderVideo({
       .catch((error) => {
         console.log(error);
         runErrorAction({
-          error: error.toString(),
+          error,
           item,
           instanceId,
           batchName: item.batchName,
