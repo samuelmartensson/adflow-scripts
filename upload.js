@@ -39,7 +39,10 @@ module.exports = (job, settings, action) => {
 
           console.log(`File uploaded successfully. ${awsData.Location}`);
 
-          firebase.database().ref(`${data.instanceId}/${data.referenceKey}`).update({ "render-status": "done" });
+          firebase
+            .database()
+            .ref(`${data.instanceId}/${data.referenceKey}`)
+            .update({ "render-status": "done" });
 
           const media = {
             created_date: new Date().toISOString(),
@@ -53,7 +56,7 @@ module.exports = (job, settings, action) => {
             id: data.id,
             batchName: data.batchName || "",
             isImage: isImageSequence,
-            fbAdsManagerFields: data.fbAdsManagerFields || null,
+            metaDataFields: data.metaDataFields || null,
             compiledRenderConfig: data.compiledRenderConfig || null,
           };
 
