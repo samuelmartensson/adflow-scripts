@@ -13,8 +13,8 @@ const {
   generateAepFilePath,
   setupRenderActions,
 } = require("./utils");
+const { fetchQueueData } = require("./proxy");
 const { nexrender_path } = require("./consts");
-const { getQueueMessage } = require("./dist/render");
 
 if (firebase.apps.length === 0) {
   firebase.initializeApp({
@@ -23,11 +23,14 @@ if (firebase.apps.length === 0) {
   });
 }
 
+let ORG_ID = "";
 let USER_ID = "";
 let BATCH_ID = "";
 let JOB_UID = "";
 let AE_ERROR = "";
 let ERROR_LOG = "";
+let DATA = [];
+let currentIndex = -1;
 
 const s3 = new AWS.S3({
   signatureVersion: "v4",
@@ -38,6 +41,12 @@ const s3 = new AWS.S3({
 
 async function terminateCurrentInstance({ instanceId }) {
   try {
+    const rtbdRef = firebase.database().ref(instanceId);
+    const ref = firebase
+      .firestore()
+      .collection(`organizations/${ORG_ID}/instances`);
+    await rtbdRef.remove();
+    await ref.doc(instanceId).delete();
     if (BATCH_ID) {
       await firebase
         .firestore()
@@ -78,6 +87,16 @@ const logAndTerminate = (processName, instanceId, error = "", userId = "") => {
   });
 };
 
+const rehydrateDataQueue = async ({ instanceId }) => {
+  const data = await fetchQueueData(instanceId).catch((error) => {
+    logAndTerminate("Fetch queue", instanceId, error);
+  });
+
+  DATA = data;
+
+  return null;
+};
+
 const runErrorAction = async ({
   error,
   item,
@@ -88,7 +107,26 @@ const runErrorAction = async ({
   const ref = firebase
     .firestore()
     .collection(`users/${item.userId}/renderErrors`);
+  const rtdbRef = firebase.database().ref(`${instanceId}/${item.referenceKey}`);
   let options = { src: "", type: "" };
+
+  const requeueRehydrate = async (src) => {
+    console.log(
+      "------------------- REQUEING AND REHYDRATING -------------------"
+    );
+
+    const requeue = {
+      ...item,
+      items: item?.items?.filter(
+        (item) => !item?.fields?.find((field) => field?.src === src)
+      ),
+    };
+
+    currentIndex -= 1;
+    await rtdbRef.set(requeue);
+    await rehydrateDataQueue({ instanceId });
+    Promise.resolve();
+  };
 
   if (
     error?.code === "ECONNRESET" ||
@@ -124,6 +162,12 @@ const runErrorAction = async ({
       timestamp: Date.now(),
       batchName,
     });
+
+    if (isPowerRender) {
+      await requeueRehydrate(options.src);
+    } else {
+      rtdbRef.update({ "render-status": "error" });
+    }
 
     return Promise.resolve();
   }
@@ -225,15 +269,19 @@ const main = async () => {
   const instanceId = await getInstanceId();
 
   try {
-    const msg = await getQueueMessage();
+    console.log("Recieved instanceId: " + instanceId);
+    console.log("Fetching data from RTDB...");
+    const data = await fetchQueueData(instanceId).catch((error) => {
+      logAndTerminate("Fetch queue", instanceId, error);
+    });
 
-    if (!msg || !msg.ReceiptHandle || !msg.Body) {
-      console.log("No more messages --- EXIT PROCESS");
-      return;
+    DATA = data.filter((item) => item["render-status"] !== "done");
+
+    if (!data) {
+      await logAndTerminate("No data", instanceId);
     }
 
-    const body = JSON.parse(msg.Body);
-    const { userId, templateId, batchId } = body;
+    const { orgId, userId, templateId, batchId } = data[0];
     const url = await s3.getSignedUrlPromise("getObject", {
       Bucket: "adflow-templates",
       Key: generateAepFilePath(templateId),
@@ -248,6 +296,7 @@ const main = async () => {
           .get()
       )?.docs?.[0]?.data() || [];
 
+    ORG_ID = orgId;
     USER_ID = userId;
     BATCH_ID = batchId;
 
@@ -261,11 +310,14 @@ const main = async () => {
     async.forever(
       (next) => {
         (async () => {
-          if (!body) {
+          currentIndex += 1;
+          const item = DATA?.[currentIndex];
+
+          if (!item) {
             await terminateCurrentInstance({ instanceId });
           } else {
             await renderVideo({
-              item: body,
+              item,
               url,
               instanceId,
               templateId,
