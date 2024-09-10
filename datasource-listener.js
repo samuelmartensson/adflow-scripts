@@ -231,15 +231,21 @@ async function renderVideo({
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
+  const QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
 
   try {
-    const msg = await getQueueMessage(sqs);
+    const msg = await getQueueMessage(sqs, QUEUE_URL);
 
     if (!msg || !msg.ReceiptHandle || !msg.Body) {
       console.log("No more messages --- EXIT PROCESS");
       await terminateCurrentInstance({ instanceId });
       return;
     }
+
+    sqs.deleteMessage(
+      { QueueUrl: QUEUE_URL, ReceiptHandle: msg.ReceiptHandle },
+      () => console.log("DELETED", msg.ReceiptHandle)
+    );
 
     const body = JSON.parse(msg.Body);
     const { userId, templateId, batchId } = body;

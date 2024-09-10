@@ -3,14 +3,15 @@ import AWS from "aws-sdk";
 const QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
 
 export const getQueueMessage = (
-  sqs: AWS.SQS
+  sqs: AWS.SQS,
+  queueUrl: string
 ): Promise<null | AWS.SQS.Message> =>
   new Promise((resolve) => {
     console.log("FETCHING QUEUE MESSAGES");
 
     sqs.receiveMessage(
       {
-        QueueUrl: QUEUE_URL,
+        QueueUrl: queueUrl,
         VisibilityTimeout: 10,
         WaitTimeSeconds: 5,
       },

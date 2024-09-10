@@ -2,11 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getQueueMessage = void 0;
 var QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
-var getQueueMessage = function (sqs) {
+var getQueueMessage = function (sqs, queueUrl) {
     return new Promise(function (resolve) {
         console.log("FETCHING QUEUE MESSAGES");
         sqs.receiveMessage({
-            QueueUrl: QUEUE_URL,
+            QueueUrl: queueUrl,
             VisibilityTimeout: 10,
             WaitTimeSeconds: 5,
         }, function (err, data) {
