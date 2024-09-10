@@ -24,7 +24,7 @@ if (firebase.apps.length === 0) {
 }
 
 let USER_ID = "";
-let BATCH_ID = "";
+let ORG_ID = "";
 let JOB_UID = "";
 let AE_ERROR = "";
 let ERROR_LOG = "";
@@ -46,13 +46,12 @@ const sqs = new AWS.SQS({
 
 async function terminateCurrentInstance({ instanceId }) {
   try {
-    if (BATCH_ID) {
-      await firebase
-        .firestore()
-        .collection(`users/${USER_ID}/batchNames`)
-        .doc(BATCH_ID)
-        .update({ instances: firebase.firestore.FieldValue.increment(-1) });
-    }
+    const poolRef = firebase.firestore().collection("instancePool");
+    const orgRef = firebase
+      .firestore()
+      .collection(`organizations/${ORG_ID}/instances`);
+    await orgRef.doc(instanceId).delete();
+    await poolRef.doc(instanceId).delete();
   } catch (error) {
     logger.error({
       processName: "Failed instance cleanup",
@@ -231,7 +230,16 @@ async function renderVideo({
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
-  const QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
+  // let queueUrl = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
+
+  const queueUrl = (
+    await firebase.firestore().collection("instancePool").doc(instanceId).get()
+  ).data?.queueUrl;
+
+  if (!queueUrl) {
+    logAndTerminate("Queue missing", instanceId);
+    return;
+  }
 
   const templateCache = {};
 
@@ -239,7 +247,7 @@ const main = async () => {
     async.forever(
       (next) => {
         (async () => {
-          const msg = await getQueueMessage(sqs, QUEUE_URL);
+          const msg = await getQueueMessage(sqs, queueUrl);
 
           if (!msg || !msg.ReceiptHandle || !msg.Body) {
             console.log("No more messages --- EXIT PROCESS");
@@ -248,12 +256,12 @@ const main = async () => {
           }
 
           sqs.deleteMessage(
-            { QueueUrl: QUEUE_URL, ReceiptHandle: msg.ReceiptHandle },
+            { QueueUrl: queueUrl, ReceiptHandle: msg.ReceiptHandle },
             () => console.log("DELETED", msg.ReceiptHandle)
           );
 
           const body = JSON.parse(msg.Body);
-          const { userId, templateId, batchId } = body;
+          const { userId, orgId, templateId } = body;
 
           if (!templateCache?.[templateId]) {
             // New template for the instance, do setup work, save in cache
@@ -282,7 +290,7 @@ const main = async () => {
           }
 
           USER_ID = userId;
-          BATCH_ID = batchId;
+          ORG_ID = orgId;
 
           if (!body) {
             await terminateCurrentInstance({ instanceId });
