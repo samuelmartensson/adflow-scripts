@@ -36,6 +36,14 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET,
 });
 
+const sqs = new AWS.SQS({
+  region: "eu-north-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ID,
+    secretAccessKey: process.env.AWS_SECRET,
+  },
+});
+
 async function terminateCurrentInstance({ instanceId }) {
   try {
     if (BATCH_ID) {
@@ -225,10 +233,11 @@ const main = async () => {
   const instanceId = await getInstanceId();
 
   try {
-    const msg = await getQueueMessage();
+    const msg = await getQueueMessage(sqs);
 
     if (!msg || !msg.ReceiptHandle || !msg.Body) {
       console.log("No more messages --- EXIT PROCESS");
+      await terminateCurrentInstance({ instanceId });
       return;
     }
 

@@ -1,20 +1,10 @@
-require("dotenv").config({ path: __dirname + "/.env" });
 import AWS from "aws-sdk";
-import async from "async";
-// @ts-ignore
-import renderVideo from "./local/localRender";
 
 const QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
 
-const sqs = new AWS.SQS({
-  region: "eu-north-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ID!,
-    secretAccessKey: process.env.AWS_SECRET!,
-  },
-});
-
-export const getQueueMessage = (): Promise<null | AWS.SQS.Message> =>
+export const getQueueMessage = (
+  sqs: AWS.SQS
+): Promise<null | AWS.SQS.Message> =>
   new Promise((resolve) => {
     console.log("FETCHING QUEUE MESSAGES");
 
@@ -33,28 +23,6 @@ export const getQueueMessage = (): Promise<null | AWS.SQS.Message> =>
       }
     );
   });
-
-async.forever(
-  (next) => {
-    (async () => {
-      const msg = await getQueueMessage();
-
-      if (!msg || !msg.ReceiptHandle || !msg.Body) {
-        console.log("No more messages --- EXIT PROCESS");
-        return;
-      }
-
-      sqs.deleteMessage(
-        { QueueUrl: QUEUE_URL, ReceiptHandle: msg.ReceiptHandle },
-        () => console.log("DELETED", msg.ReceiptHandle)
-      );
-
-      await renderVideo(JSON.parse(msg.Body));
-      next();
-    })();
-  },
-  (e) => console.log(e)
-);
 
 // Next steps
 // Create 1 queue per customer
