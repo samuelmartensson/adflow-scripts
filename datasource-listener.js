@@ -230,17 +230,17 @@ async function renderVideo({
 const main = async () => {
   // If this fails then IDK, send alert maybe?
   const instanceId = await getInstanceId();
-  // let queueUrl = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
+  const BASE_QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/";
 
-  const queueUrl = (
+  const orgId = (
     await firebase.firestore().collection("instancePool").doc(instanceId).get()
-  ).data?.queueUrl;
+  ).data?.orgId;
 
-  if (!queueUrl) {
+  if (!orgId) {
     logAndTerminate("Queue missing", instanceId);
     return;
   }
-
+  const queueUrl = BASE_QUEUE_URL + orgId;
   const templateCache = {};
 
   try {
