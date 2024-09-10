@@ -233,67 +233,75 @@ const main = async () => {
   const instanceId = await getInstanceId();
   const QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/render";
 
+  const templateCache = {};
+
   try {
-    const msg = await getQueueMessage(sqs, QUEUE_URL);
-
-    if (!msg || !msg.ReceiptHandle || !msg.Body) {
-      console.log("No more messages --- EXIT PROCESS");
-      await terminateCurrentInstance({ instanceId });
-      return;
-    }
-
-    sqs.deleteMessage(
-      { QueueUrl: QUEUE_URL, ReceiptHandle: msg.ReceiptHandle },
-      () => console.log("DELETED", msg.ReceiptHandle)
-    );
-
-    const body = JSON.parse(msg.Body);
-    const { userId, templateId, batchId } = body;
-    const url = await s3.getSignedUrlPromise("getObject", {
-      Bucket: "adflow-templates",
-      Key: generateAepFilePath(templateId),
-      Expires: 60 * 60,
-    });
-    const { staticFields = [] } =
-      (
-        await firebase
-          .firestore()
-          .collection("templates")
-          .where("id", "==", templateId)
-          .get()
-      )?.docs?.[0]?.data() || [];
-
-    USER_ID = userId;
-    BATCH_ID = batchId;
-
-    await installFonts({
-      templateId,
-      userId,
-      onError: (reason, error) =>
-        logAndTerminate(reason, instanceId, error, userId),
-    });
-
     async.forever(
       (next) => {
         (async () => {
+          const msg = await getQueueMessage(sqs, QUEUE_URL);
+
+          if (!msg || !msg.ReceiptHandle || !msg.Body) {
+            console.log("No more messages --- EXIT PROCESS");
+            await terminateCurrentInstance({ instanceId });
+            return;
+          }
+
+          sqs.deleteMessage(
+            { QueueUrl: QUEUE_URL, ReceiptHandle: msg.ReceiptHandle },
+            () => console.log("DELETED", msg.ReceiptHandle)
+          );
+
+          const body = JSON.parse(msg.Body);
+          const { userId, templateId, batchId } = body;
+
+          if (!templateCache?.[templateId]) {
+            // New template for the instance, do setup work, save in cache
+            const url = await s3.getSignedUrlPromise("getObject", {
+              Bucket: "adflow-templates",
+              Key: generateAepFilePath(templateId),
+              Expires: 60 * 60,
+            });
+
+            const { staticFields = [] } =
+              (
+                await firebase
+                  .firestore()
+                  .collection("templates")
+                  .where("id", "==", templateId)
+                  .get()
+              )?.docs?.[0]?.data() || [];
+            templateCache[templateId] = { url, staticFields };
+            // Skipping font install if the template is in the cache
+            await installFonts({
+              templateId,
+              userId,
+              onError: (reason, error) =>
+                logAndTerminate(reason, instanceId, error, userId),
+            });
+          }
+
+          USER_ID = userId;
+          BATCH_ID = batchId;
+
           if (!body) {
             await terminateCurrentInstance({ instanceId });
           } else {
             await renderVideo({
               item: body,
-              url,
               instanceId,
               templateId,
               next,
-              staticFields,
+              url: templateCache[templateId].url,
+              staticFields: templateCache[templateId].staticFields,
             });
           }
         })().catch((error) => {
-          logAndTerminate("Main queue", instanceId, error, userId);
+          logAndTerminate("Main queue", instanceId, error, USER_ID);
         });
       },
       (error) => {
-        logAndTerminate("Async forever", instanceId, error, userId);
+        logAndTerminate("Async forever", instanceId, error, USER_ID);
       }
     );
   } catch (error) {
