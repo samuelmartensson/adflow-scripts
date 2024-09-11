@@ -234,7 +234,7 @@ const main = async () => {
 
   const orgId = (
     await firebase.firestore().collection("instancePool").doc(instanceId).get()
-  ).data?.orgId;
+  ).data()?.orgId;
 
   if (!orgId) {
     logAndTerminate("Queue missing", instanceId);
