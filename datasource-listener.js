@@ -199,11 +199,10 @@ async function renderVideo({
       workpath: `${nexrender_path}/Temp`,
       reuse: true,
       debug: true,
-      // We run 2022 on video AMI
+      binary:
+        "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
       ...(isVideo && {
         multiFrames: true,
-        binary:
-          "C:/Program Files/Adobe/Adobe After Effects 2022/Support Files/aerender.exe",
       }),
     })
       .then(() => {
