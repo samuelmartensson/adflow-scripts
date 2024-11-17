@@ -102,8 +102,10 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
         .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
 
       if (!extension) return item;
+
       return {
         ...item,
+        name: `${item.name}.${extension}`,
         extension,
       };
     }
