@@ -95,7 +95,21 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
   }
 
   // video
-  json.assets = [...item.fields, ...staticFields];
+  json.assets = [...item.fields, ...staticFields].map((item) => {
+    const extension = item.src
+      .split(".")
+      .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
+
+    if (item.type === "image" && item?.name && extension) {
+      return {
+        ...item,
+        name: item.name,
+        extension,
+      };
+    }
+    return item;
+  });
+
   json.actions.postrender[1].output = outputFile;
   json.actions.postrender[2].data = jobMetadata;
   json.actions.postrender[2].filePath = outputFile;
