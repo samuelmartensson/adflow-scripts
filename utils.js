@@ -61,7 +61,7 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
     continueOnMissing: true,
   };
 
-  json.actions.prerender[0].data = { ...item, instanceId };
+  json.actions.postdownload[0].data = { ...item, instanceId };
 
   if (isImage || powerRender) {
     json.template.outputModule = "JPEG";
