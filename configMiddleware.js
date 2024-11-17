@@ -9,7 +9,7 @@ const video = () => {
     },
     assets: [],
     actions: {
-      prerender: [
+      postdownload: [
         {
           module: `${scriptPath}\\update.js`,
         },
@@ -41,7 +41,7 @@ const image = () => {
     },
     assets: [],
     actions: {
-      prerender: [
+      postdownload: [
         {
           module: `${scriptPath}\\update.js`,
         },
@@ -69,7 +69,7 @@ const powerRender = () => {
     },
     assets: [],
     actions: {
-      prerender: [
+      postdownload: [
         {
           module: `${scriptPath}\\update.js`,
         },
