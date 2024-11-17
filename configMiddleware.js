@@ -10,9 +10,9 @@ const video = () => {
     assets: [],
     actions: {
       prerender: [
-        // {
-        //   module: `${scriptPath}\\update.js`,
-        // },
+        {
+          module: `${scriptPath}\\update.js`,
+        },
       ],
       postrender: [
         {
@@ -42,9 +42,9 @@ const image = () => {
     assets: [],
     actions: {
       prerender: [
-        // {
-        //   module: `${scriptPath}\\update.js`,
-        // },
+        {
+          module: `${scriptPath}\\update.js`,
+        },
       ],
       postrender: [
         {
@@ -70,9 +70,9 @@ const powerRender = () => {
     assets: [],
     actions: {
       prerender: [
-        // {
-        //   module: `${scriptPath}\\update.js`,
-        // },
+        {
+          module: `${scriptPath}\\update.js`,
+        },
       ],
       postrender: [
         {

@@ -61,7 +61,7 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
     continueOnMissing: true,
   };
 
-  // json.actions.prerender[0].data = { ...item, instanceId };
+  json.actions.prerender[0].data = { ...item, instanceId };
 
   if (isImage || powerRender) {
     json.template.outputModule = "JPEG";
@@ -95,22 +95,7 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
   }
 
   // video
-  json.assets = [...item.fields, ...staticFields].map((item) => {
-    if (item.type === "image" && item?.name) {
-      const extension = item.src
-        .split(".")
-        .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
-
-      if (!extension) return item;
-
-      return {
-        ...item,
-        name: `${item.name}.${extension}`,
-        extension,
-      };
-    }
-    return item;
-  });
+  json.assets = [...item.fields, ...staticFields];
 
   json.actions.postrender[1].output = outputFile;
   json.actions.postrender[2].data = jobMetadata;

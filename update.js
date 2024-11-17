@@ -1,26 +1,37 @@
 require("dotenv").config({ path: __dirname + "/.env" });
-const firebase = require("firebase-admin");
-const serviceAccount = require("./serviceaccountcred");
 const logger = require("./logger").default;
+const fileType = require("file-type");
+const { nexrender_path } = require("./consts");
+const fs = require("fs");
 
 module.exports = (job, settings, action) => {
   const { data } = action;
-  if (firebase.apps.length === 0) {
-    firebase.initializeApp({
-      credential: firebase.credential.cert(serviceAccount),
-      databaseURL: process.env.FIREBASE_DB_URL,
-    });
-  }
 
   return new Promise((resolve) => {
     try {
-      firebase
-        .database()
-        .ref(`${data.instanceId}/${data.referenceKey}`)
-        .update({ "render-status": "queued" })
-        .then(() => {
-          resolve(job);
-        });
+      job.assets = job.assets.map((item) => {
+        if (item.type === "image" && item?.name) {
+          const srcExtension = item.src
+            .split(".")
+            .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
+
+          if (srcExtension) return item;
+
+          const img = fs.readFileSync(
+            `${nexrender_path}/Temp/${job.uid}/${item.name}`
+          );
+          const extension = fileType(img).extension;
+
+          return {
+            ...item,
+            name: `${item.name}.${extension}`,
+            extension,
+          };
+        }
+
+        return item;
+      });
+      resolve(job);
     } catch (err) {
       logger.error(
         {
