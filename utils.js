@@ -96,14 +96,14 @@ const setupRenderActions = ({ item, instanceId, url, staticFields }) => {
 
   // video
   json.assets = [...item.fields, ...staticFields].map((item) => {
-    const extension = item.src
-      .split(".")
-      .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
+    if (item.type === "image" && item?.name) {
+      const extension = item.src
+        .split(".")
+        .find((ext) => ["jpeg", "jpg", "png", "webp"].includes(ext));
 
-    if (item.type === "image" && item?.name && extension) {
+      if (!extension) return item;
       return {
         ...item,
-        name: item.name,
         extension,
       };
     }
