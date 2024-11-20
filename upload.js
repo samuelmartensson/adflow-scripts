@@ -60,7 +60,12 @@ module.exports = (job, settings, action) => {
             compiledRenderConfig: data.compiledRenderConfig || null,
           };
 
-          db.collection(`users/${data.userId}/videos`)
+          const scope =
+            data.scope === "user"
+              ? `users/${data.userId}/videos`
+              : `organizations/${data.orgId}/media`;
+
+          db.collection(scope)
             .doc()
             .set(media)
             .then(() => resolve(job));
