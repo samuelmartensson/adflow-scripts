@@ -170,30 +170,14 @@ const runErrorAction = async ({
 };
 
 async function renderVideo({
-  item,
-  url,
+  isVideo,
   instanceId,
-  templateId,
-  staticFields,
   next,
+  renderConfig,
+  onError,
 }) {
   console.log("DATA FOUND --- STARTING RENDER");
   try {
-    const renderConfig = {
-      ...setupRenderActions({
-        item,
-        url,
-        instanceId,
-        templateId,
-        staticFields,
-      }),
-      onRenderError: (job, error) => {
-        AE_ERROR = error;
-        JOB_UID = job.uid;
-      },
-    };
-    const isVideo = !item.isImage && !item.powerRender;
-
     render(renderConfig, {
       addLicense: true,
       workpath: `${nexrender_path}/Temp`,
@@ -210,19 +194,11 @@ async function renderVideo({
       })
       .catch((error) => {
         console.log(error);
-        runErrorAction({
-          error,
-          item,
-          instanceId,
-          batchName: item.batchName,
-          isPowerRender: !!item?.powerRender,
-        }).then(() => {
-          next();
-        });
+        onError(error);
       });
   } catch (error) {
     console.log(error);
-    logAndTerminate("renderVideo", instanceId, error, item.userId);
+    logAndTerminate("renderVideo", instanceId, error, USER_ID);
   }
 }
 
@@ -231,18 +207,22 @@ const main = async () => {
   const instanceId = await getInstanceId();
   const BASE_QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/569934194411/";
 
-  const orgId = (
-    await firebase.firestore().collection("instancePool").doc(instanceId).get()
-  ).data()?.orgId;
-
-  if (!orgId) {
-    logAndTerminate("Queue missing", instanceId);
-    return;
-  }
-  const queueUrl = BASE_QUEUE_URL + orgId;
-  const templateCache = {};
-
   try {
+    const orgId = (
+      await firebase
+        .firestore()
+        .collection("instancePool")
+        .doc(instanceId)
+        .get()
+    ).data()?.orgId;
+
+    if (!orgId) {
+      logAndTerminate("Queue missing", instanceId);
+      return;
+    }
+    const queueUrl = BASE_QUEUE_URL + orgId;
+    const templateCache = {};
+
     async.forever(
       (next) => {
         (async () => {
@@ -295,12 +275,33 @@ const main = async () => {
             await terminateCurrentInstance({ instanceId });
           } else {
             await renderVideo({
-              item: body,
               instanceId,
-              templateId,
               next,
-              url: templateCache[templateId].url,
-              staticFields: templateCache[templateId].staticFields,
+              isVideo: !body.isImage && !body.powerRender,
+              onError: (error) => {
+                runErrorAction({
+                  error,
+                  item: body,
+                  instanceId,
+                  batchName: body.batchName,
+                  isPowerRender: !!body?.powerRender,
+                }).finally(() => {
+                  next();
+                });
+              },
+              renderConfig: {
+                ...setupRenderActions({
+                  item: body,
+                  url: templateCache[templateId].url,
+                  instanceId,
+                  templateId,
+                  staticFields: templateCache[templateId].staticFields,
+                }),
+                onRenderError: (job, error) => {
+                  AE_ERROR = error;
+                  JOB_UID = job.uid;
+                },
+              },
             });
           }
         })().catch((error) => {
